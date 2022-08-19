@@ -14,7 +14,21 @@
 
 ## Installation
 
-This section is TODO.
+### Make a backup
+
+1. Go to the game's root folder (which contains the `age3y.exe` file).
+2. Go to the `AI3` folder.
+3. Make a copy of the `aiMain.xs` file and put that copy anywhere you want. You will need it when you want to uninstall this alternative AI script.
+
+### Install the alt AI
+
+1. [Download the latest version](https://github.com/alistair-jah/legacy-age3-ai/releases)
+2. Extract the `aiMain.xs` file to the `AI3` folder (see the **Make a backup** section).
+3. Click `Replace all`.
+
+## Uninstallation
+
+Find your backup copy of the `aiMain.xs` file and paste it back to the `AI3` folder.
 
 ## Authors
 
