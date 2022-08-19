@@ -25,33 +25,11 @@ extern const int     cStartModeLandWagon = 5;      // RM or GC game, starting wi
 //==============================================================================
 // Econ variables
 //==============================================================================
-extern int  gGatherGoal = -1;       // Stores all top-level gatherer data
-extern int  gFarmBaseID = -1;       // Current operating bases for each resource
-extern int  gFoodBaseID = -1;
-extern int  gGoldBaseID = -1;
-extern int  gWoodBaseID = -1;
-extern int  gNextFarmBaseID = -1;   // Overflow operating bases for each resource
-extern int  gNextFoodBaseID = -1;
-extern int  gNextGoldBaseID = -1;
-extern int  gNextWoodBaseID = -1;
-extern int  gPrevFarmBaseID = -1;   // Phasing-out bases for each resource
-extern int  gPrevFoodBaseID = -1;
-extern int  gPrevGoldBaseID = -1;
-extern int  gPrevWoodBaseID = -1;
 
 extern int  gDefaultDeck = -1;   // Home city deck used by each AI
-extern bool gEarlyEconPhase = true; // Used to indicate that we're in a special startup econ phase, i.e. almost all food for most civs.
-                                    // This is turned off when we decide it's time to go military, i.e when we build a barracks or get attacked
-                                    // or reach age 2.
                                     
 extern bool gTimeToFarm = false;    // Set true when we start to run out of cheap early food.
 extern bool gTimeForPlantations = false;  // Set true when we start to run out of mine-able gold.
-
-extern float gTSFactorDistance = -200.0;  // negative is good
-extern float gTSFactorPoint = 10.0;			// positive is good
-extern float gTSFactorTimeToDone = 0.0;	// positive is good
-extern float gTSFactorBase = 100.0;			// positive is good
-extern float gTSFactorDanger = -10.0;		// negative is good
 
 extern int  gEconUnit = cUnitTypeSettler; // Set to coureur for French.
 extern int  gHouseUnit = cUnitTypeHouse;  // Housing unit, different per civ.
@@ -69,13 +47,6 @@ extern int  gLastTribSentTime = 0;
 
 extern int  gEconUpgradePlan = -1;
 
-extern bool gGoldEmergency = false;  // Set this true if we need a gold mine, and don't have enough wood.  Overrides econ to 100% wood.
-
-extern int  gVPEscrowID = -1;       // Used to reserve resources for accelerator building.
-extern int  gUpgradeEscrowID = -1;  // Used to reserve ships for age upgrades
-// extern int  gHouseEscrowID = -1;    // Used to buy houses/manors only, off econ account.
-extern int  gTowerEscrowID = -1;
-
 extern int gTCBuildPlanID = -1;
 
 extern int gStartMode = -1;    // See start mode constants, above.  This variable is set 
@@ -92,12 +63,10 @@ extern int  gHerdPlanID = -1;
                         
 extern int gSettlerMaintainPlan = -1;   // Main plan to control settler population
 
-extern int gTransportUnit = cUnitTypeAbstractWarShip;  // hard coded ship type for now
 extern int  gWaterTransportUnitMaintainPlan = -1;  // The plan that maintains all the ships
 extern int  gWaterExplorePlan = -1;    // Plan ID for ocean exploration plan
 extern bool gWaterMap = false;               // True when we are on a water map
 extern int  gNavyDefendPlan = -1;
-extern int  gNavyAttackPlan = -1;
 
 extern vector gTCSearchVector = cInvalidVector;  // Used to define the center of the TC building placement search.
 extern int   gTCStartTime = 10000;                   // Used to define when the TC build plan can go active.  In ms.
@@ -106,7 +75,6 @@ extern int  gAgeUpResearchPlan = -1;      // Plan used to send politician from H
 
 extern int  gAgeUpTime = 0;            // Time we entered this age
 
-extern int gNuggetMessagePercentage = 100;
 extern int gFeedGoldTo = -1;     // If set, this indicates which player we need to be supplying with regular gold shipments.
 extern int gFeedWoodTo = -1;     // See commsHandler and monitorFeeding rule.
 extern int gFeedFoodTo = -1;
@@ -130,7 +98,6 @@ extern int  gNativeDancePlan = -1;
 //==============================================================================
 extern int  gLandDefendPlan0 = -1;   // Primary land defend plan
 extern int  gLandReservePlan = -1;     // Reserve defend plan, gathers units for use in the next military mission
-//extern int  gWaterDefendPlan0 = -1;    // Primary water defend plan
 
 extern bool gDefenseReflex = false;    // Set true when a defense reflex is overriding normal ops.
 extern bool gDefenseReflexPaused = false; // Set true when we're in a defense reflex, but overwhelmed, so we're hiding to rebuild an army.
@@ -140,8 +107,6 @@ extern int  gDefenseReflexStartTime = 0;
 
 extern int  gLandUnitPicker = -1;      // Picks the best land military units to train.
 extern int  gMainAttackGoal = -1;      // Attack goal monitors opportunities, launches missions.
-extern int  gLandMilUnitUpgradePlan = -1;    // The plan ID of the most recent unit upgrade plan
-extern int  gArtilleryMaintainPlan = -1;     // Manual plan to force building of some siege.
 
 extern int  gCaravelMaintain = -1;     // Maintain plans for naval units.
 extern int  gGalleonMaintain = -1;
@@ -160,15 +125,7 @@ extern int  gNavyMode = cNavyModeOff; // Tells us whether we're making no navy, 
 extern vector gNavyVec = cInvalidVector;  // The center of the navy's operations.
 
 
-extern int  gPrimaryArmyUnit = -1;     // Main land unit type
-extern int  gSecndaryArmyUnit = -1;    // Secondary land unit type
-extern int  gTertiaryArmyUnit = -1;    // Tertiary land unit type
 extern int  gNumArmyUnitTypes = 3;    // How many land unit types do we want to train?
-
-extern int  gPrimaryNavyUnit = -1;     // Main water unit type
-extern int  gSecndaryNavyUnit = -1;    // Secondary water unit type
-extern int  gTertiaryNavyUnit = -1;    // Tertiary water unit type
-extern int  gNumNavyUnitTypes = -1;    // How many water unit types do we want to train?
 
 extern int  gGoodArmyPop = -1;         // This number is updated by the pop manager, to give a ballpark feel for the pop count needed to create a credible
                                        // attack army.  It is based on military pop allowed and game time, and is very sensitive to difficulty level.  
@@ -203,25 +160,6 @@ extern int  gLandExplorePlan = -1;  // Primary land exploration
 
 extern int  gMainBase = -1;
 
-extern int  gcVPTypeAny = 0;
-extern int  gcVPTypeNative = cVPNative;
-extern int  gcVPTypeSecret = cVPSecret;
-extern int  gcVPTypeTrade = cVPTrade;
-
-
-extern float gInitRushBoom = 0.0;
-extern float gInitOffenseDefense = 0.0;
-extern float gInitBiasCav = 0.0;
-extern float gInitBiasInf = 0.0;
-extern float gInitBiasArt = 0.0;
-extern float gInitBiasNative = 0.0;
-extern float gInitBiasTrade = 0.0;
-
-
-extern bool gIAmCaptain = false;
-extern int  gCaptainPlayerNumber = -1;
-
-extern int  gResignType = -1;       // Reason for AI requesting permission to resign
 
 extern bool gBuildWalls = false;    // Global indicating if we're walling up or not.
 extern int  gNumTowers = -1;        // How many towers do we want to build?
@@ -258,9 +196,6 @@ mutable void endDefenseReflex(void) {}
 // Forecast float array initialized below.
 extern int  gForecasts = -1;
 
-// Percentage of gatherers assigned.  Array.
-extern int  gTargetGathererPercents = -1;
-
 extern int  gMapNames = -1;   // An array of random map names, so we can store ID numbers in player histories
 
 extern int  gTargetSettlerCounts = -1; // How many settlers do we want per age?
@@ -278,7 +213,6 @@ extern int  gAsianWonders = -1; //List of wonders for the asian civs
 void initArrays(void)
 {
    gForecasts = xsArrayCreateFloat(cNumResourceTypes, 0.0, "Forecasts");
-   gTargetGathererPercents = xsArrayCreateFloat(cNumResourceTypes, 0.0, "Gatherer Percents");
    gMapNames = xsArrayCreateString(50, "", "Map names");
       xsArraySetString(gMapNames, 0, "amazonia");
       xsArraySetString(gMapNames, 1, "bayou");
@@ -492,18 +426,12 @@ void sendChatToAllies(string text="")
 
 bool civIsNative(void)
 {
-   if ((cMyCiv == cCivXPAztec) || (cMyCiv == cCivXPIroquois) || (cMyCiv == cCivXPSioux))
-      return(true);
-   
-   return(false);
+    return(cMyCulture == cCultureAztec || cMyCulture == cCultureIroquois || cMyCulture == cCultureSioux);
 }
 
 bool civIsAsian(void)
 {
-   if ((cMyCiv == cCivJapanese) || (cMyCiv == cCivChinese) || (cMyCiv == cCivIndians) || (cMyCiv == cCivSPCIndians) || (cMyCiv == cCivSPCChinese) || (cMyCiv == cCivSPCJapanese) || (cMyCiv == cCivSPCJapaneseEnemy))
-      return(true);
-   
-   return(false);
+    return(cMyCulture == cCultureJapanese || cMyCulture == cCultureChinese || cMyCulture == cCultureIndian);
 }
 
 
@@ -521,11 +449,12 @@ int getSettlerShortfall()
 
 bool agingUp()
 {
-   bool retVal = false;
-   if (aiPlanGetState(gAgeUpResearchPlan) == cPlanStateResearch)
-      retVal = true;
-
-   return(retVal);
+    return(
+        // Europeans and Natives are ageing up with techs
+        aiPlanGetState(gAgeUpResearchPlan) == cPlanStateResearch || 
+        // Asians are ageing up with buildings (wonders)
+        aiPlanGetState(gAgeUpResearchPlan) == cPlanStateBuild
+    );
 }
 
 int getWonderToBuild(int the_age=-1)
@@ -1322,40 +1251,6 @@ void setConsulateArmyPreference() {
   
 }
 
-//==============================================================================
-//createSimpleTrainPlan
-//==============================================================================
-int createSimpleTrainPlan(int puid=-1, int number=1, int escrowID=-1, int baseID=-1, int batchSize=1)
-{
-	//Create a the plan name.
-	string planName="Simple";
-	planName=planName+kbGetProtoUnitName(puid)+"Train";
-	int planID=aiPlanCreate(planName, cPlanTrain);
-	if (planID < 0)
-		return(-1);
-
-	// Escrow.
-	aiPlanSetEscrowID(planID, escrowID);
-	//Unit type.
-	aiPlanSetVariableInt(planID, cTrainPlanUnitType, 0, puid);
-	//Number.
-	aiPlanSetVariableInt(planID, cTrainPlanNumberToTrain, 0, number);
-	// Batch size
-	aiPlanSetVariableInt(planID, cTrainPlanBatchSize, 0, batchSize);
-	
-	//If we have a base ID, use it.
-	if (baseID >= 0)
-	{
-		aiPlanSetBaseID(planID, baseID);
-		aiPlanSetVariableVector(planID, cTrainPlanGatherPoint, 0, kbBaseGetMilitaryGatherPoint(cMyID, baseID));
-	}
-
-	aiPlanSetActive(planID);
-
-	//Done.
-	return(planID);
-} 
-   
    
 //==============================================================================
 //createSimpleMaintainPlan
@@ -2392,20 +2287,6 @@ void updateEscrows(void)
    kbEscrowSetCap(cMilitaryEscrowID, cResourceFood, 300);
    kbEscrowSetCap(cMilitaryEscrowID, cResourceWood, 200);
    kbEscrowSetCap(cMilitaryEscrowID, cResourceGold, 300);
-  
-   kbEscrowSetPercentage(gVPEscrowID, cResourceFood, 0.0);        
-//      kbEscrowSetPercentage(gVPEscrowID, cResourceWood, 0.2);        
-//      kbEscrowSetPercentage(gVPEscrowID, cResourceGold, 0.15);
-   kbEscrowSetPercentage(gVPEscrowID, cResourceFame, 0.0);
-   kbEscrowSetPercentage(gVPEscrowID, cResourceSkillPoints, 0.0);
-   kbEscrowSetCap(gVPEscrowID, cResourceFood, 0);
-   kbEscrowSetCap(gVPEscrowID, cResourceWood, 300);
-   kbEscrowSetCap(gVPEscrowID, cResourceGold, 200);
-   
-   kbEscrowSetPercentage(gUpgradeEscrowID, cResourceFood, 0.0);
-   kbEscrowSetPercentage(gUpgradeEscrowID, cResourceWood, 0.0);
-   kbEscrowSetPercentage(gUpgradeEscrowID, cResourceGold, 0.0);
-   kbEscrowSetPercentage(gUpgradeEscrowID, cResourceShips, 0.0);
 }
 
 
@@ -3828,18 +3709,6 @@ minInterval 5
       
       kbEscrowAllocateCurrentResources();
 
-		//-- Set the resource TargetSelector factors.
-		gTSFactorDistance = -40.0;
-		gTSFactorPoint = 10.0;
-		gTSFactorTimeToDone = 0.0;
-		gTSFactorBase = 100.0;
-		gTSFactorDanger = -40.0;
-		kbSetTargetSelectorFactor(cTSFactorDistance, gTSFactorDistance);
-		kbSetTargetSelectorFactor(cTSFactorPoint, gTSFactorPoint);
-		kbSetTargetSelectorFactor(cTSFactorTimeToDone, gTSFactorTimeToDone);
-		kbSetTargetSelectorFactor(cTSFactorBase, gTSFactorBase);
-		kbSetTargetSelectorFactor(cTSFactorDanger, gTSFactorDanger);
-      
       setUnitPickerPreference(gLandUnitPicker);
      
       gLastAttackMissionTime = xsGetTime() - 180000;     // Pretend they all fired 3 minutes ago, even if that's a negative number.
@@ -4267,147 +4136,6 @@ minInterval 31
 
 
 
-//==============================================================================
-// initGatherGoal()
-//==============================================================================
-int initGatherGoal()
-{
-   /* Create the gather goal, return its handle.  The gather goal stores the key data for controlling
-      gatherer distribution.  
-   */
-   int planID = aiPlanCreate("GatherGoals", cPlanGatherGoal);
-
-   if (planID >= 0)
-   {
-      //Overall percentages.
-      aiPlanSetDesiredPriority(planID, 90);
-      //Set the RGP weights.  Script in charge.  
-		aiSetResourceGathererPercentageWeight(cRGPScript, 0.5);              // Portion driven by forecast
-		aiSetResourceGathererPercentageWeight(cRGPCost, 0.5);                // Portion driven by exchange rates
-		
-      // Set the gather goal to reflect those settings (Gather goal values are informational only to simplify debugging.)
-      // Set the gather goal to reflect those settings (Gather goal values are informational only to simplify debugging.)
-      aiPlanSetVariableFloat(planID, cGatherGoalPlanScriptRPGPct, 0, 1.0); 
-      aiPlanSetVariableFloat(planID, cGatherGoalPlanCostRPGPct, 0, 1.0);   
-
-      aiPlanSetNumberVariableValues(planID, cGatherGoalPlanGathererPct, cNumResourceTypes, true);
-      // Set initial gatherer assignments.
-      aiPlanSetVariableFloat(planID, cGatherGoalPlanGathererPct, cResourceGold, 0.0);
-      aiPlanSetVariableFloat(planID, cGatherGoalPlanGathererPct, cResourceWood, 0.2);
-      aiPlanSetVariableFloat(planID, cGatherGoalPlanGathererPct, cResourceFood, 0.8);
-/*
-      if (kbGetCiv() == cCivFrench)
-      {
-         aiPlanSetVariableFloat(planID, cGatherGoalPlanGathererPct, cResourceWood, 0.6);
-         aiPlanSetVariableFloat(planID, cGatherGoalPlanGathererPct, cResourceFood, 0.4);
-      }
-*/
-      //Standard resource breakdown setup, all easy at the start.
-      aiPlanSetNumberVariableValues(planID, cGatherGoalPlanNumFoodPlans, 5, true);
-      aiPlanSetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeEasy, 1);
-      if ( (kbGetCiv() != cCivJapanese) && (kbGetCiv() != cCivSPCJapanese) && (kbGetCiv() != cCivSPCJapaneseEnemy) ) {
-        aiPlanSetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeHunt, 1);
-      }
-      aiPlanSetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeHerdable, 0);
-      aiPlanSetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeHunt, 0);
-      aiPlanSetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeHuntAggressive, 0);
-      aiPlanSetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeFarm, 0);
-      aiPlanSetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeFish, 0);
-      aiPlanSetVariableInt(planID, cGatherGoalPlanNumWoodPlans, 0, 1);
-      aiPlanSetVariableInt(planID, cGatherGoalPlanNumGoldPlans, 0, 1);  
-
-      //Cost weights...set the convenience copies in the gather goal first, then the real ones next.
-      aiPlanSetNumberVariableValues(planID, cGatherGoalPlanResourceCostWeight, cNumResourceTypes, true);
-      aiPlanSetVariableFloat(planID, cGatherGoalPlanResourceCostWeight, cResourceGold, 1.0); // Gold is the standard
-      aiPlanSetVariableFloat(planID, cGatherGoalPlanResourceCostWeight, cResourceWood, 1.2); // Start at 1.2, since wood is harder to collect
-      aiPlanSetVariableFloat(planID, cGatherGoalPlanResourceCostWeight, cResourceFood, 1.0); // Premium for food, or 1.0?
-
-      //Setup AI Cost weights.  This makes it actually work, the calls above just set the convenience copy in the gather goal.
-      kbSetAICostWeight(cResourceFood, aiPlanGetVariableFloat(planID, cGatherGoalPlanResourceCostWeight, cResourceFood));
-      kbSetAICostWeight(cResourceWood, aiPlanGetVariableFloat(planID, cGatherGoalPlanResourceCostWeight, cResourceWood));
-      kbSetAICostWeight(cResourceGold, aiPlanGetVariableFloat(planID, cGatherGoalPlanResourceCostWeight, cResourceGold));
-      
-      //Set initial gatherer percentages.
-      aiSetResourceGathererPercentage(cResourceFood, 0.8, false, cRGPScript);    
-      aiSetResourceGathererPercentage(cResourceWood, 0.2, false, cRGPScript);    
-      aiSetResourceGathererPercentage(cResourceGold, 0.0, false, cRGPScript);  
-      
-/*
-if (kbGetCiv() == cCivFrench)
-      {  // Need coureurs (wood) early.
-         aiSetResourceGathererPercentage(cResourceWood, 0.6, false, cRGPScript);    
-         aiSetResourceGathererPercentage(cResourceFood, 0.4, false, cRGPScript);
-      }
-*/
-      if (kbGetCiv() == cCivDutch)
-      {  // Need bank (wood/food) early.
-         aiSetResourceGathererPercentage(cResourceWood, 0.6, false, cRGPScript);    
-         aiSetResourceGathererPercentage(cResourceFood, 0.4, false, cRGPScript);
-      }
-      if ( (kbGetCiv() == cCivBritish) || (kbGetCiv() == cCivPirate) || (kbGetCiv() == cCivTheCircle)  || (kbGetCiv() == cCivSPCAct3))
-      {  // Need extra wood
-         aiSetResourceGathererPercentage(cResourceWood, 0.4, false, cRGPScript);    
-         aiSetResourceGathererPercentage(cResourceFood, 0.6, false, cRGPScript);
-      }  
-      aiNormalizeResourceGathererPercentages(cRGPScript);
-
-      //Set up the initial resource breakdowns.
-      int numFoodEasyPlans=aiPlanGetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeEasy);
-      int numFoodHuntPlans=aiPlanGetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeHunt);
-      int numFoodHerdablePlans=aiPlanGetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeHerdable);
-      int numFoodHuntAggressivePlans=aiPlanGetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeHuntAggressive);
-      int numFishPlans=aiPlanGetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeFish);
-      int numFarmPlans=aiPlanGetVariableInt(planID, cGatherGoalPlanNumFoodPlans, cAIResourceSubTypeFarm);
-      int numWoodPlans=aiPlanGetVariableInt(planID, cGatherGoalPlanNumWoodPlans, 0);
-      int numGoldPlans=aiPlanGetVariableInt(planID, cGatherGoalPlanNumGoldPlans, 0);
-
-      if ((kbBaseGetMainID(cMyID) >= 0) )     // Don't bother if we don't have a main base
-      {         
-         if (cvOkToGatherFood == true)
-         {
-            aiSetResourceBreakdown(cResourceFood, cAIResourceSubTypeEasy, numFoodEasyPlans, 49, 1.0, kbBaseGetMainID(cMyID));      // All on easy food at start
-            if ( (kbGetCiv() != cCivJapanese) && (kbGetCiv() != cCivSPCJapanese) && (kbGetCiv() != cCivSPCJapaneseEnemy) ) {
-              aiSetResourceBreakdown(cResourceFood, cAIResourceSubTypeHunt, numFoodHuntPlans, 49, 1.0, kbBaseGetMainID(cMyID));      // All on easy hunting food at start
-            }
-            if ( (kbGetCiv() != cCivIndians) && (kbGetCiv() != cCivSPCIndians) && (kbGetCiv() != cCivJapanese) && (kbGetCiv() != cCivSPCJapanese) && (kbGetCiv() != cCivSPCJapaneseEnemy) ) {
-              aiSetResourceBreakdown(cResourceFood, cAIResourceSubTypeHerdable, numFoodHerdablePlans, 24, 1.0, kbBaseGetMainID(cMyID));
-            }
-            aiSetResourceBreakdown(cResourceFood, cAIResourceSubTypeHuntAggressive, numFoodHuntAggressivePlans, 49, 0.0, kbBaseGetMainID(cMyID)); 
-            aiSetResourceBreakdown(cResourceFood, cAIResourceSubTypeFish, numFishPlans, 49, 0.0, kbBaseGetMainID(cMyID));
-            aiSetResourceBreakdown(cResourceFood, cAIResourceSubTypeFarm, numFarmPlans, 51, 0.0, kbBaseGetMainID(cMyID));
-            if ( (kbGetCiv() == cCivJapanese) || (kbGetCiv() == cCivSPCJapanese) || (kbGetCiv() == cCivSPCJapaneseEnemy) ) {
-              aiSetResourceBreakdown(cResourceFood, cAIResourceSubTypeFarm, numFarmPlans, 51, 1.0, kbBaseGetMainID(cMyID));
-            }
-         }
-         if (cvOkToGatherWood == true)
-            aiSetResourceBreakdown(cResourceWood, cAIResourceSubTypeEasy, numWoodPlans, 50, 1.0, kbBaseGetMainID(cMyID));
-         if (cvOkToGatherGold == true)
-            aiSetResourceBreakdown(cResourceGold, cAIResourceSubTypeEasy, numGoldPlans, 55, 1.0, kbBaseGetMainID(cMyID));
-      }
-
-   }
-   return(planID);
-}
-
-
-
-
-
-
-//==============================================================================
-// updateEconSiteList
-/*
-   Scan all potential econ bases that aren't being used.   Sort them into a 
-   rational order of planned use, considering size, proximity to each other,
-   security, etc.
-*/
-//==============================================================================
-void updateEconSiteList(void)
-{
-}
-
-
-
 
 
 //==============================================================================
@@ -4541,15 +4269,6 @@ void initEcon(void)
    aiSetEconomyPercentage(1.0);
    aiSetMilitaryPercentage(1.0);    // Priority balance neutral
 
-   // TODO:  Define current bases, areagroup, etc.
-   gFarmBaseID=kbBaseGetMainID(cMyID);
-   gFoodBaseID=kbBaseGetMainID(cMyID);       // Where we hunt or gather non-farm food.
-   gGoldBaseID=kbBaseGetMainID(cMyID);
-   gWoodBaseID=kbBaseGetMainID(cMyID);
- 
-   // Set up gatherer goal
-   gGatherGoal = initGatherGoal();
-
 	//Create a herd plan to gather all herdables that we ecounter.
    gHerdPlanID=aiPlanCreate("GatherHerdable Plan", cPlanHerd);
    if (gHerdPlanID >= 0)
@@ -4566,23 +4285,6 @@ void initEcon(void)
 
    //Lastly, force an update on the economy...call the function directly.
    econMaster();
-}
-
-
-
-
-
-
-
-//==============================================================================
-// evaluateBases
-/*
-   Review the list of currently active economic bases for viability.  
-   Determine if bases need to be added to or removed from the list.  
-*/
-//==============================================================================
-void evaluateBases()
-{
 }
 
 
@@ -4645,13 +4347,6 @@ void updatePrices()
 
 	// Gold
 	kbSetAICostWeight(cResourceGold, 1.00);	// gold always 1.0, others relative to gold
-	
-	// Update the gather plan goal
-	int i=0;
-	for (i=0; < 3)
-	{
-		aiPlanSetVariableFloat(gGatherGoal, cGatherGoalPlanResourceCostWeight, i, kbGetAICostWeight(i));
-	}
 }
 
 
@@ -4737,8 +4432,6 @@ void updateForecasts()
    int effectiveAge = kbGetAge();
    if ( agingUp() == true )
       effectiveAge = effectiveAge + 1;
-//   if ( (kbGetAge() == cAge1) && (gEarlyEconPhase == false) )
-//      effectiveAge = cAge2;
    
    int numUnits = 0; // Temp var used to track how many of each item will be needed
 
@@ -5370,13 +5063,6 @@ void econMaster(int mode=-1, int value=-1)
    // Monitor main base supply of food and gold, activate farming and plantations when resources run low
    updateResources();
  
-   // Maintain list of possible future econ bases, prioritize them
-   updateEconSiteList();   // TODO
-
-
-   // Evaluate active base status...are all bases still usable?  Adjust if not.
-   evaluateBases();        // TODO
-
 
    // Update forecasts for economic and military expenses.  Set resource
    // exchange rates.
@@ -5803,54 +5489,8 @@ int initUnitPicker(string name="BUG", int numberTypes=1, int minUnits=10,
   
    setUnitPickerPreference(upID);  // Set generic preferences for this civ
    
-   xsEnableRule("artilleryMonitor");
-   xsEnableRule("nativeMonitor");
-
    //Done.
    return(upID);
-}
-
-
-
-//==============================================================================
-/*
-   nativeMonitor
-   
-   Make and update maintain plans for native warriors
-   since they don't show up often 
-*/
-//==============================================================================
-rule nativeMonitor
-inactive
-minInterval 30
-{
-   
-xsDisableSelf();
-return;
-   
-   static int nativePlan = -1;
-   
-   if (nativePlan < 0)
-      nativePlan = createSimpleMaintainPlan(cUnitTypeAbstractNativeWarrior, 0, false, kbBaseGetMainID(cMyID));
-   
-   int nativeQuery = kbVPSiteQuery(cVPNative, cMyID, cVPStateCompleted);
-   int nativeSiteCount = xsArrayGetSize(nativeQuery);
-   float nativeTarget = nativeSiteCount * 0.1 * aiGetMilitaryPop();  // 10% of mil pop per native site.
-   int nativeInt = -1;
-   
-   if (btBiasNative > 0.0) 
-      nativeTarget = nativeTarget * (1.0 + btBiasNative); // 0.0 gives no change, 1.0 max doubles it.
-   else
-      nativeTarget = nativeTarget * (1.0 + (btBiasNative/2.0)); // 0.0 gives no change, -1.0 min cuts pop in half
-   nativeInt = nativeTarget;
-   
-   aiPlanSetVariableInt(nativePlan, cTrainPlanNumberToMaintain, 0, nativeInt );    // 20% of military pop
-   
-   static int oldTarget = -1;
-   if (oldTarget != nativeInt)
-      aiEcho("    Changing native maintain plan from "+oldTarget+" units to "+nativeInt+" units");
-   
-   oldTarget = nativeInt;   
 }
 
 
@@ -6499,28 +6139,6 @@ minInterval 2
    kbEscrowSetCap(cMilitaryEscrowID, cResourceFood, 300);
    kbEscrowSetCap(cMilitaryEscrowID, cResourceWood, 300);
    kbEscrowSetCap(cMilitaryEscrowID, cResourceGold, 300);
-    
-   kbEscrowCreate("VP Site", cResourceFood, .25, cRootEscrowID);     // Add an accelerator escrow
-   gVPEscrowID = kbEscrowGetID("VP Site");   
-   
-   kbEscrowSetPercentage(gVPEscrowID, cResourceFood, 0.0);        
-   kbEscrowSetPercentage(gVPEscrowID, cResourceWood, 0.0);        
-   kbEscrowSetPercentage(gVPEscrowID, cResourceGold, 0.0);
-   kbEscrowSetPercentage(gVPEscrowID, cResourceShips, 0.0);
-   kbEscrowSetCap(gVPEscrowID, cResourceFood, 0);
-   kbEscrowSetCap(gVPEscrowID, cResourceWood, 300);
-   kbEscrowSetCap(gVPEscrowID, cResourceGold, 300);
-   
-   kbEscrowCreate("Age Upgrade", cResourceShips, 0.0, cRootEscrowID);     // Add an upgrade escrow
-   gUpgradeEscrowID = kbEscrowGetID("Age Upgrade");    
-   
-   kbEscrowSetPercentage(gUpgradeEscrowID, cResourceFood, 0.0);        
-   kbEscrowSetPercentage(gUpgradeEscrowID, cResourceWood, 0.0);        
-   kbEscrowSetPercentage(gUpgradeEscrowID, cResourceGold, 0.0);
-   kbEscrowSetPercentage(gUpgradeEscrowID, cResourceShips, 0.0);
-   kbEscrowSetCap(gUpgradeEscrowID, cResourceFood, 0.0);
-   kbEscrowSetCap(gUpgradeEscrowID, cResourceWood, 0.0);
-   kbEscrowSetCap(gUpgradeEscrowID, cResourceGold, 0.0);
 
    kbEscrowAllocateCurrentResources();
 
@@ -7912,65 +7530,6 @@ group startup
 
 
 
-//==============================================================================
-/*
-   selectCaptain
-
-   Updates the global gIAmCaptain bool.  Also sets the gCaptainPlayerNumber int.
-   Algorithm is brain-dead simple.
-   I am captain if I am the lowest-numbered AI player on a team with no 
-   human players.  Otherwise, I am not captain.
-
-*/
-//==============================================================================
-rule selectCaptain
-active
-minInterval 30
-{
-   int player = -1;
-   bool amCaptain = false;  // Unless proven otherwise
-   bool humanTeammate = false;   // Set true if/when a human teammate is found
-   int captainsNumber = -1;   // Set when we find a captain
-
-
-   for (player = 1; < cNumberPlayers)
-   {
-      if (kbHasPlayerLost(player) == false)
-      {
-         if (kbIsPlayerAlly(player) == true)
-         {
-            // if this player is human, that's the captainsNumber
-            if ( (kbIsPlayerHuman(player) == true) && (kbHasPlayerLost(player) == false) && (humanTeammate == false) )
-            {
-               amCaptain = false;         // AI player is definitely not human
-               captainsNumber = player;
-               humanTeammate = true;
-            }
-            else
-            {  // This is an AI player or a human player other than the first.  If it's not me and has a lower number and there's no human yet, he's captain.
-               if( (kbIsPlayerHuman(player) == false) && (kbHasPlayerLost(player) == false)  && (humanTeammate == false) )
-               {
-                  if ( (player <= cMyID) && (captainsNumber < 0) )   // He's <= me and there's no captain yet
-                  {
-                     captainsNumber = player;
-                     if (player == cMyID)
-                        amCaptain = true;    // I'm the captain...unless human player is found later.
-                  }
-               }
-            }
-         }
-      }
-   }  // End for(player) loop.
-   if ( (captainsNumber != gCaptainPlayerNumber) || (gIAmCaptain != amCaptain) )
-   {  // Something changed
-      aiEcho("***  Old captain was "+gCaptainPlayerNumber+", new captain is "+captainsNumber);
-      gCaptainPlayerNumber = captainsNumber;
-      gIAmCaptain = amCaptain;
-   }
-}
-
-
-
 
 int getMapID(void)
 {
@@ -8971,9 +8530,6 @@ void init(void)
    //Set the Explore Danger Threshold.
    aiSetExploreDangerThreshold(110.0);
 
-   // Set the gIAmCaptain bool and gCaptainPlayerNumber vars.
-	selectCaptain();  
-
    //Setup the resign handler
    aiSetHandler("resignHandler", cXSResignHandler);
 
@@ -9251,14 +8807,6 @@ void init(void)
    
    postInit();		// All normal initialization is done, let loader file clean up what it needs to.
    
-   // Store the initial settings for later retrieval (to handle 'cancel' after a train bias command.
-   gInitRushBoom = btRushBoom;
-   gInitOffenseDefense = btOffenseDefense;
-   gInitBiasCav = btBiasCav;
-   gInitBiasInf = btBiasInf;
-   gInitBiasArt = btBiasArt;
-   gInitBiasNative = btBiasNative;
-   gInitBiasTrade = btBiasTrade;
    aiEcho("INITIAL BEHAVIOR SETTINGS");
    aiEcho("    Rush "+btRushBoom);
    aiEcho("    Offense "+btOffenseDefense);
@@ -10132,7 +9680,6 @@ void shipGrantedHandler(int parm=-1) // Event handler
 	if (bestCard >= 0)
 	{
 		aiEcho("  Choosing card "+bestCard);
-		//createSimpleTrainPlan(bestUnitType, 1, cRootEscrowID, -1, 1, true);
 		aiHCDeckPlayCard(bestCard);
 	}
 }
@@ -13552,13 +13099,6 @@ void main(void)
       }
    }
 
-	//-- set the default Resource Selector factor.
-	kbSetTargetSelectorFactor(cTSFactorDistance, gTSFactorDistance);
-	kbSetTargetSelectorFactor(cTSFactorPoint, gTSFactorPoint);
-	kbSetTargetSelectorFactor(cTSFactorTimeToDone, gTSFactorTimeToDone);
-	kbSetTargetSelectorFactor(cTSFactorBase, gTSFactorBase);
-	kbSetTargetSelectorFactor(cTSFactorDanger, gTSFactorDanger);
-   
    xsEnableRule("autoSave");
    // Trigger first autosave immediately
 	autoSave(); 
@@ -13754,8 +13294,6 @@ group tcComplete
 
 void KOTHVictoryStartHandler(int teamID=-1)
 {
-   int newOppID = -1;
-   
    aiEcho("     ");
    aiEcho("     ");
    aiEcho("     ");
