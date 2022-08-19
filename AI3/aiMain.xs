@@ -4,7 +4,6 @@
 
 // Temporary constants, to be deleted if implemented in C++
 
-extern const int		cNumResourceTypes = 3;  // Gold, food, wood.
 extern const float   baselineHandicap = 1.0;    // This is the handicap given to cDifficultyHard.  Our intent is to ship with this at 1.0,
                                                 // meaning that hard has no handicap advantage or penalty.
                                                 // All other difficulty levels will be adjusted relative to this constant.  This means that
@@ -30,6 +29,7 @@ extern int  gDefaultDeck = -1;   // Home city deck used by each AI
                                     
 extern bool gTimeToFarm = false;    // Set true when we start to run out of cheap early food.
 extern bool gTimeForPlantations = false;  // Set true when we start to run out of mine-able gold.
+extern bool gNoMoreTree = false;
 
 extern int  gEconUnit = cUnitTypeSettler; // Set to coureur for French.
 extern int  gHouseUnit = cUnitTypeHouse;  // Housing unit, different per civ.
@@ -185,7 +185,6 @@ mutable void postInit(void) {}
 mutable void econMaster(int mode=-1, int value=-1) {}
 mutable void shipGrantedHandler(int parm=-1) {}
 mutable int initUnitPicker(string name="BUG", int numberTypes=1, int minUnits=10,int maxUnits=20, int minPop=-1, int maxPop=-1, int numberBuildings=1, bool guessEnemyUnitType=false) {return(-1);}
-mutable void updateForecasts(void) {}
 mutable void setUnitPickerPreference(int upID=-1) {}
 mutable void endDefenseReflex(void) {}
 
@@ -193,8 +192,6 @@ mutable void endDefenseReflex(void) {}
 //==============================================================================
 // Global Arrays
 //==============================================================================
-// Forecast float array initialized below.
-extern int  gForecasts = -1;
 
 extern int  gMapNames = -1;   // An array of random map names, so we can store ID numbers in player histories
 
@@ -212,7 +209,6 @@ extern int  gAsianWonders = -1; //List of wonders for the asian civs
 //==============================================================================
 void initArrays(void)
 {
-   gForecasts = xsArrayCreateFloat(cNumResourceTypes, 0.0, "Forecasts");
    gMapNames = xsArrayCreateString(50, "", "Map names");
       xsArraySetString(gMapNames, 0, "amazonia");
       xsArraySetString(gMapNames, 1, "bayou");
@@ -949,6 +945,22 @@ float getPlayerArmyHPs(int playerID = -1, bool considerHealth = false)
 }
 
 
+float min(float a = 0.0, float b = 0.0)
+{
+    if (a < b)
+        return(a);
+    return(b);
+}
+
+
+float max(float a = 0.0, float b = 0.0)
+{
+    if (a > b)
+        return(a);
+    return(b);
+}
+
+
 //==============================================================================
 /* sigmoid(float base, float adjustment, float floor, float ceiling)
 
@@ -1061,7 +1073,7 @@ int createSimpleResearchPlan(int techID=-1, int buildingID=-1, int escrowID=cRoo
 //==============================================================================
 //createNativeResearchPlan
 //==============================================================================
-int createNativeResearchPlan(int tacticID=cTacticNormal, int pri=50, int need=1, int want=5, int max=10)
+int createNativeResearchPlan(int tacticID=cTacticNormal, int pri=50, int need=1, int want=5, int cap=10)
 {
    int buildingID = getUnit(cUnitTypeFirePit);
    int planID = -1;
@@ -1087,7 +1099,7 @@ int createNativeResearchPlan(int tacticID=cTacticNormal, int pri=50, int need=1,
       aiPlanSetVariableInt(planID, cNativeResearchPlanBuildingID, 0, buildingID);
       aiPlanSetDesiredPriority(planID, pri);
       //aiPlanSetEscrowID(planID, escrowID);
-      aiPlanAddUnitType(planID, gEconUnit, need, want, max);
+      aiPlanAddUnitType(planID, gEconUnit, need, want, cap);
       aiPlanSetActive(planID);
    }
    return(planID);
@@ -2301,147 +2313,196 @@ void updateEscrows(void)
 //==============================================================================
 void updateGatherers(void)
 {
-   int i = 0;
-  
-   static int resourcePriorities = -1;    // An array that holds our priorities for cResourceFood, etc.
-   if (resourcePriorities < 0)            // Initialize if needed
-      resourcePriorities = xsArrayCreateFloat(cNumResourceTypes, 0.0, "resourcePriorities");
+    /* ===================================================================
+        1. Setting up for the allocation.
+    =================================================================== */
 
-	aiSetResourceGathererPercentageWeight(cRGPScript, 1.0);
-	aiSetResourceGathererPercentageWeight(cRGPCost, 0.0);
+    // Set the gatherer allocation to be controlled entirely by this script:
+    aiSetResourceGathererPercentageWeight(cRGPScript, 1.0);
+    // Ignore all gatherer allocations calculated by the internal AI:
+    aiSetResourceGathererPercentageWeight(cRGPCost, 0.0);
+    // Normalizes all of the resource gatherer percentages weights to 1.0.
+    aiNormalizeResourceGathererPercentageWeights();
 
-   /*
-      Allocate gatherers based on a weighted average of two systems.  The first system is based
-      on the forecasts, ignoring current inventory, i.e. it wants to keep gatherers aligned with
-      out medium-term demand, and not swing based on inventory.  The second system is based
-      on forecast minus inventory, or shortfall.  This is short-term, highly reactive, and volatile.
-      The former factor will be weighted more heavily when inventories are large, the latter when 
-      inventories are tight.  (When inventories are zero, they are the same...the second method
-      reacts strongly when one resource is at or over forecast, and others are low.)
-   */
-   float forecastWeight = 1.0;
-   float reactiveWeight = 0.0;   // reactive + forecast = 1.0
-   static int forecastValues = -1;  // Array holding the relative forecast-oriented values.
-   static int reactiveValues = -1;
-   static int gathererPercentages = -1;
-   
-   if (forecastValues < 0)
-   {
-      forecastValues = xsArrayCreateFloat(cNumResourceTypes, 0.0, "forecast oriented values");
-      reactiveValues = xsArrayCreateFloat(cNumResourceTypes, 0.0, "reactive values");
-      gathererPercentages = xsArrayCreateFloat(cNumResourceTypes, 0.0, "gatherer percentages");
-   }
-   
-   float totalForecast = 0.0;
-   float totalShortfall = 0.0;
-   float fcst = 0.0;
-   float shortfall = 0.0;
-   for (i=0; <cNumResourceTypes)
-   {
-      fcst = xsArrayGetFloat(gForecasts, i);
-      shortfall = fcst - kbResourceGet(i);
-      totalForecast = totalForecast + fcst;
-      if (shortfall > 0.0)
-         totalShortfall = totalShortfall + shortfall;
-   }
-   
-   if (totalForecast > 0)
-      reactiveWeight = totalShortfall / totalForecast;
-   else
-      reactiveWeight = 1.0;
-   forecastWeight = 1.0 - reactiveWeight;
-   // Make reactive far more important
-   if (totalShortfall > (0.3 * totalForecast))  // we have a significant shortfall
-   {  // If it was 40/60 reactive:forecast, this makes it 82/18.
-      // 10/90 becomes 73/27;  80/20 becomes 94/6
-      reactiveWeight = reactiveWeight + (0.7 * forecastWeight);
-      forecastWeight = 1.0 - reactiveWeight;
-   }
-   
-   // Update the arrays
-   float scratch = 0.0;
-   for (i=0; <cNumResourceTypes)
-   {
-      fcst = xsArrayGetFloat(gForecasts, i);
-      shortfall = fcst - kbResourceGet(i);
-      xsArraySetFloat(forecastValues, i, fcst / totalForecast);   // This resource's share of the total forecast
-      if ( shortfall > 0 )
-         xsArraySetFloat(reactiveValues, i, shortfall / totalShortfall);
-      else
-         xsArraySetFloat(reactiveValues, i, 0.0);
-      
-      scratch = xsArrayGetFloat(forecastValues, i) * forecastWeight;
-      scratch = scratch + (xsArrayGetFloat(reactiveValues, i) * reactiveWeight);
-      xsArraySetFloat(gathererPercentages, i, scratch);
-   }   
-   //aiEcho("Forecast values:");
-   //for (i=0; < cNumResourceTypes)
-      //aiEcho("    "+i+" "+xsArrayGetFloat(forecastValues, i));
-      
-   //aiEcho("Shortfall values:");
-   //for (i=0; < cNumResourceTypes)
-      //aiEcho("    "+i+" "+xsArrayGetFloat(reactiveValues, i));
-   
-   //aiEcho("Shortfall weight is "+reactiveWeight);
-      
-   //aiEcho("Raw gatherer percentages:");
-   //for (i=0; < cNumResourceTypes)
-      //aiEcho("    "+i+" "+xsArrayGetFloat(gathererPercentages, i));
-   
-   float totalPercentages = 0.0;
-   
-   // Adjust for wood being slower to gather
-   xsArraySetFloat(gathererPercentages, cResourceWood, xsArrayGetFloat(gathererPercentages, cResourceWood) * 1.4);
-   
-   // Normalize if not 1.0
-   totalPercentages = 0.0;
-   for(i=0; <cNumResourceTypes)
-      totalPercentages = totalPercentages + xsArrayGetFloat(gathererPercentages, i);
-   for(i=0; <cNumResourceTypes)
-      xsArraySetFloat(gathererPercentages, i, xsArrayGetFloat(gathererPercentages, i) / totalPercentages);
+    // Get the amounts of resources we currently have.
+    float currentGold = kbResourceGet(cResourceGold);
+    float currentWood = kbResourceGet(cResourceWood);
+    float currentFood = kbResourceGet(cResourceFood);
+    float currentTotal = currentGold + currentWood + currentFood;
+    // Store the total as an integer value so we can use '==' comparison.
+    int intCurrentTotal = currentTotal;
 
-   //aiEcho("Wood-adjusted gatherer percentages:");
-   //for (i=0; < cNumResourceTypes)
-      //aiEcho("    "+i+" "+xsArrayGetFloat(gathererPercentages, i)); 
-   
-   // Now, consider the effects of dedicated gatherers, like fishing boats and banks, since we need to end up with settler/coureur assignments to pick up the balance.
-   float coreGatherers = kbUnitCount(cMyID, gEconUnit, cUnitStateAlive);
-   coreGatherers = coreGatherers +  kbUnitCount(cMyID, cUnitTypeSettlerWagon, cUnitStateAlive);
-   float goldGatherers = kbUnitCount(cMyID, cUnitTypeBank, cUnitStateAlive) * 5;
-   float foodGatherers = kbUnitCount(cMyID, gFishingUnit, cUnitStateAlive);
-   float totalGatherers = coreGatherers + goldGatherers + foodGatherers;
-   //aiEcho("We have "+goldGatherers+" dedicated gold gatherers.");
-   //aiEcho("We have "+foodGatherers+" dedicated food gatherers.");   
-   
-   float goldWanted = totalGatherers * xsArrayGetFloat(gathererPercentages, cResourceGold);
-   if (goldWanted < goldGatherers)
-      goldWanted = goldGatherers;
-   float foodWanted = totalGatherers * xsArrayGetFloat(gathererPercentages, cResourceFood);
-   if (foodWanted < foodGatherers)
-      foodWanted = foodGatherers;
-   float woodWanted = totalGatherers * xsArrayGetFloat(gathererPercentages, cResourceWood);
+    int iPlan = -1;
+    // Calculate the amounts of resources we're planning to spend.
+    float plannedGold = 0.0;
+    float plannedWood = 0.0;
+    float plannedFood = 0.0;
 
-   
-   // What percent of our core gatherers should be on each resource?
-   xsArraySetFloat(gathererPercentages, cResourceGold, (goldWanted - goldGatherers) / coreGatherers);
-   xsArraySetFloat(gathererPercentages, cResourceFood, (foodWanted - foodGatherers) / coreGatherers);
-   xsArraySetFloat(gathererPercentages, cResourceWood, (woodWanted) / coreGatherers);
-   // Normalize
-   totalPercentages = 0.0;
-   for(i=0; <cNumResourceTypes)
-      totalPercentages = totalPercentages + xsArrayGetFloat(gathererPercentages, i);
-   for(i=0; <cNumResourceTypes)
-      xsArraySetFloat(gathererPercentages, i, xsArrayGetFloat(gathererPercentages, i) / totalPercentages);
-   
-   //aiEcho("Gatherer percentages, adjusted for dedicated gatherers:");
-   //for (i=0; < cNumResourceTypes)
-      //aiEcho("    "+i+" "+xsArrayGetFloat(gathererPercentages, i)); 
+    for(i = 0; < aiPlanGetNumber())
+    {
+        iPlan = aiPlanGetIDByIndex(-1, -1, true, i);
+        if (aiPlanGetState(iPlan) == cPlanStateResearch || aiPlanGetState(iPlan) == cPlanStateBuild)
+            continue;
+        
+        if (aiPlanGetType(iPlan) == cPlanBuild && 
+            kbUnitIsType(aiPlanGetVariableInt(iPlan, cBuildPlanBuildUnitID, 0), cUnitTypeAbstractWagon)
+        )
+        {
+            continue;
+        }
 
-	// Set the new values.
-	for (i=0; <cNumResourceTypes)
-		aiSetResourceGathererPercentage(i, xsArrayGetFloat(gathererPercentages, i), false, cRGPScript);
-	
-   aiNormalizeResourceGathererPercentages(cRGPScript);   // Set them to 1.0 total, just in case these don't add up.
+        switch(aiPlanGetType(iPlan))
+        {
+            case cPlanResearch:
+            {
+                int techToResearch = aiPlanGetVariableInt(iPlan, cResearchPlanTechID, 0);
+                plannedGold = plannedGold + kbTechCostPerResource(techToResearch, cResourceGold);
+                plannedWood = plannedWood + kbTechCostPerResource(techToResearch, cResourceWood);
+                plannedFood = plannedFood + kbTechCostPerResource(techToResearch, cResourceFood);
+                break;
+            }
+            case cPlanBuild:
+            {
+                int buildingToBuild = aiPlanGetVariableInt(iPlan, cBuildPlanBuildingTypeID, 0);
+                plannedGold = plannedGold + kbUnitCostPerResource(buildingToBuild, cResourceGold);
+                plannedWood = plannedWood + kbUnitCostPerResource(buildingToBuild, cResourceWood);
+                plannedFood = plannedFood + kbUnitCostPerResource(buildingToBuild, cResourceFood);
+                break;
+            }
+            case cPlanTrain:
+            {
+                int unitToMaintain = aiPlanGetVariableInt(iPlan, cTrainPlanUnitType, 0);
+                int currentCount = kbUnitCount(cMyID, unitToMaintain, cUnitStateABQ);
+                int numToMaintain = aiPlanGetVariableInt(iPlan, cTrainPlanNumberToMaintain, 0);
+                int shortfall = max(0, numToMaintain - currentCount);
+                
+                // We only need to plan 300~500 Food ahead, not 10000
+                if (kbProtoUnitIsType(cMyID, unitToMaintain, cUnitTypeAbstractVillager))
+                    shortfall = max(3, kbUnitCount(cMyID, cUnitTypeTownCenter, cUnitStateAlive));
+                
+                // Don't forecast more than 800~3000 resources ahead
+                if (kbProtoUnitIsType(cMyID, unitToMaintain, cUnitTypeLogicalTypeLandMilitary))
+                    shortfall = 6 + kbGetAge();
+                
+                plannedGold = plannedGold + kbUnitCostPerResource(unitToMaintain, cResourceGold) * shortfall;
+                plannedWood = plannedWood + kbUnitCostPerResource(unitToMaintain, cResourceWood) * shortfall;
+                plannedFood = plannedFood + kbUnitCostPerResource(unitToMaintain, cResourceFood) * shortfall;
+                break;
+            }
+        }
+    }
+
+    float plannedTotal = plannedGold + plannedWood + plannedFood;
+    // Store the total as an integer value so we can use '==' comparison.
+    int intPlannedTotal = plannedTotal;
+
+    // Calculate shortfalls (i.e. the amounts by which the inventories are behind/ahead of the planned expenditures)
+    float shortfallGold = max(0.0, plannedGold - currentGold);
+    float shortfallWood = max(0.0, plannedWood - currentWood);
+    float shortfallFood = max(0.0, plannedFood - currentFood);
+    float shortfallTotal = shortfallGold + shortfallWood + shortfallFood;
+    // Store the total as an integer value so we can use '==' comparison.
+    int intShortfallTotal = shortfallTotal;
+
+    float rgpGold = 0.34;
+    float rgpWood = 0.33;
+    float rgpFood = 0.33;
+
+
+    /* ===================================================================
+        2. Preliminary gatherer allocation.
+    =================================================================== */
+
+    if (intShortfallTotal == 0)
+    {
+        // Special case: we're not planning to spend resources OR we have enough resources for everything we're planning.
+
+        if (intCurrentTotal == 0)
+        {
+            // If there's nothing in inventory, just distribute gatherers equally.
+            rgpGold = 0.34;
+            rgpWood = 0.33;
+            rgpFood = 0.33;
+        }
+        else
+        {
+            // Otherwise, make resources catch up on each other.
+            rgpGold = 1.0 - currentGold / currentTotal;
+            rgpWood = 1.0 - currentWood / currentTotal;
+            rgpFood = 1.0 - currentFood / currentTotal;
+        }
+    }
+    else
+    {
+        // Normal case: we still need to gather resources.
+
+        // Gather the most needed resources.
+        // TODO -- We need to find a math that is smarter than this.
+        rgpGold = shortfallGold / shortfallTotal;
+        rgpWood = shortfallWood / shortfallTotal;
+        rgpFood = shortfallFood / shortfallTotal;
+    }
+
+
+    /* ===================================================================
+        3. Adjustments based on different situations.
+    =================================================================== */
+
+    // TODO -- Calculate or make an approximation of the current gather rates and adjust allocations accordingly.
+
+    // If we're running out of trees, just disable wood gathering.
+    // TODO -- We can do a better approximation if we take into account all the zones covered by the rule 'GatherResources' instead of 
+    //         the main base only.
+    int mainBase = kbBaseGetMainID(cMyID);
+    int numWantedWoodGatherers = rgpWood * kbUnitCount(cMyID, cUnitTypeAbstractVillager, cUnitStateAlive);
+    float amtValidWood = kbGetAmountValidResources(mainBase, cResourceWood, cAIResourceSubTypeEasy, 100.0);
+    float amtValidWoodPerGatherer = amtValidWood / numWantedWoodGatherers;
+    if (amtValidWoodPerGatherer < 100.0 || gNoMoreTree)
+        rgpWood = 0.0;
+    
+
+    /* ===================================================================
+        4. Overrides for special situations.
+    =================================================================== */
+
+    if (kbGetAge() == cAge1 && agingUp() == false)
+    {
+        // Age1, food gatherers go brrrr.
+        rgpGold = 0.0;
+        rgpWood = 0.0;
+        rgpFood = 1.0;
+
+        // In Age1, Dutch need at least 15 settlers before focusing on food.
+        if (cMyCiv == cCivDutch)
+        {
+            int settlerCount = kbUnitCount(cMyID, cUnitTypeSettler, cUnitStateABQ);
+            float goldSoFar = 100 * settlerCount + currentGold;
+            if (goldSoFar < 1700.0)
+            {
+                rgpGold = 1.0;
+                rgpWood = 0.0;
+                rgpFood = 0.0;
+            }
+        }
+    }
+
+    // We'll need a lot of wood in Age2.
+    if (kbGetAge() == cAge1 && agingUp() == true)
+    {
+        rgpGold = 0.1;
+        rgpWood = 0.8;
+        rgpFood = 0.1;
+    }
+
+    /* ===================================================================
+        5. Final gatherer allocation.
+    =================================================================== */
+
+    aiSetResourceGathererPercentage(cResourceGold, rgpGold);
+    aiSetResourceGathererPercentage(cResourceWood, rgpWood);
+    aiSetResourceGathererPercentage(cResourceFood, rgpFood);
+    // Normalizes all of the resource gatherer percentages to 1.0.
+    aiNormalizeResourceGathererPercentages();
 }
 
 
@@ -3118,9 +3179,9 @@ inactive
 minInterval 120
 {
    int count = kbUnitCount(cMyID, gHouseUnit, cUnitStateAlive);
-   int max = kbGetBuildLimit(cMyID, gHouseUnit);
+   int limit = kbGetBuildLimit(cMyID, gHouseUnit);
    
-   count = max - count; // Count is number needed.
+   count = limit - count; // Count is number needed.
    if ( aiPlanGetIDByTypeAndVariableType(cPlanBuild, cBuildPlanBuildingTypeID, gHouseUnit) >= 0 )
       count = count - 1;
    if (cMyCiv == cCivXPSioux)
@@ -3694,7 +3755,6 @@ minInterval 5
       }
       
       findEnemyBase();  // Create a one-off explore plan to probe the likely enemy base location.
-      updateForecasts();
       updateGatherers();
       updateSettlerCounts();
       if (kbGetCiv() == cCivChinese) {
@@ -4289,706 +4349,6 @@ void initEcon(void)
 
 
 
-
-
-//==============================================================================
-//
-// updatePrices
-// 
-// This function compares actual supply vs. forecast, updates AICost 
-// values (internal resource prices), and buys/sells at the market as appropriate
-//==============================================================================
-void updatePrices()
-{
-	// check for valid forecasts, exit if not ready
-	if ( (xsArrayGetFloat(gForecasts,0) + xsArrayGetFloat(gForecasts,1) + xsArrayGetFloat(gForecasts,2) ) < 100 )
-		return; 
-   
-	float scaleFactor = 3.0;      // Higher values make prices more volatile
-   // Commentary on scale factor.  A factor of 1.0 compares inventory of resources against the full 3-minute forecast.  A scale of 10.0
-   // compares inventory to 1/10th of the forecast.  A large scale makes prices more volatile, encourages faster and more frequent trading at lower threshholds, etc.
-	float goldStatus = 0.0;
-	float woodStatus = 0.0;
-	float foodStatus = 0.0;
-	float minForecast = 200.0 * (1+kbGetAge());	// 200, 400, 600, 800 in ages 1-4, prevents small amount from looking large if forecast is very low
-	if (xsArrayGetFloat(gForecasts,cResourceGold) > minForecast)
-		goldStatus = scaleFactor * kbResourceGet(cResourceGold)/xsArrayGetFloat(gForecasts,cResourceGold);
-	else
-		goldStatus = scaleFactor * kbResourceGet(cResourceGold)/minForecast;
-	if (xsArrayGetFloat(gForecasts,cResourceFood) > minForecast)
-		foodStatus = scaleFactor * kbResourceGet(cResourceFood)/xsArrayGetFloat(gForecasts,cResourceFood);
-	else
-		foodStatus = scaleFactor * kbResourceGet(cResourceFood)/minForecast;
-	if (xsArrayGetFloat(gForecasts,cResourceWood) > minForecast)
-		woodStatus = scaleFactor * kbResourceGet(cResourceWood)/xsArrayGetFloat(gForecasts,cResourceWood);
-	else
-		woodStatus = scaleFactor * kbResourceGet(cResourceWood)/minForecast;
-		
-	// Status now equals inventory/forecast
-	// Calculate value rate of wood:gold and food:gold.  1.0 means they're of the same status, 2.0 means 
-	// that the resource is one forecast more scarce, 0.5 means one forecast more plentiful, i.e. lower value.
-	float woodRate = (1.0 + goldStatus)/(1.0 + woodStatus);
-   woodRate = woodRate * 1.2; // Because wood is more expensive to gather
-	float foodRate = (1.0 + goldStatus)/(1.0 + foodStatus);
-	
-	// The rates are now the instantaneous price for each resource.  Set the long-term prices by averaging this in
-	// at a 5% weight.
-	float cost = 0.0;
-   
-	// wood
-	cost = kbGetAICostWeight(cResourceWood);
-	cost = (cost * 0.95) + (woodRate * .05);
-	kbSetAICostWeight(cResourceWood, cost);
-
-	// food
-	cost = kbGetAICostWeight(cResourceFood);
-	cost = (cost * 0.95) + (foodRate * .05);
-	kbSetAICostWeight(cResourceFood, cost);
-
-	// Gold
-	kbSetAICostWeight(cResourceGold, 1.00);	// gold always 1.0, others relative to gold
-}
-
-
-
-
-//==============================================================================
-// spewForecasts
-//==============================================================================
-void spewForecasts()
-{  // Debug aid, dump forecast contents
-   int gold = xsArrayGetFloat(gForecasts, cResourceGold);
-   int wood = xsArrayGetFloat(gForecasts, cResourceWood);
-   int food = xsArrayGetFloat(gForecasts, cResourceFood);
-   
-   aiEcho("Forecast Gold: "+gold+", Wood: "+wood+", Food: "+food);
-   aiEcho("Prices   Gold: "+kbGetAICostWeight(cResourceGold)+", Wood: "+kbGetAICostWeight(cResourceWood)+", Food: "+kbGetAICostWeight(cResourceFood));
-}
-
-//==============================================================================
-// addItemToForecasts
-//==============================================================================
-void addItemToForecasts(int protoUnit = -1, int qty = -1)
-{
-   // Add qty of item protoUnit to the global forecast arrays
-   if (protoUnit < 0)
-      return;
-   if (qty < 1)
-      return;
-   int i=0;
-   for (i=0; <3)  // Step through first three resources
-   {
-      xsArraySetFloat(gForecasts, i, xsArrayGetFloat(gForecasts, i) + (kbUnitCostPerResource(protoUnit, i) * qty));
-   }
-   aiEcho("    "+qty+" "+kbGetProtoUnitName(protoUnit));
-   //spewForecasts();
-}
-
-
-//==============================================================================
-// addTechToForecasts
-//==============================================================================
-void addTechToForecasts(int techID = -1)
-{
-   // Add cost of this tech to the global forecast arrays
-   if (techID < 0)
-      return;
-   int i=0;
-   for (i=0; <3)  // Step through first three resources
-   {
-      xsArraySetFloat(gForecasts, i, xsArrayGetFloat(gForecasts, i) + kbTechCostPerResource(techID, i));
-   }  
-   aiEcho("    "+kbGetTechName(techID));
-   //spewForecasts();
-}
-
-//==============================================================================
-// clearForecasts
-//==============================================================================
-void clearForecasts()
-{
-   // Clear the global forecast arrays
-   int i=0;
-   for(i=0; <3)
-   {
-      xsArraySetFloat(gForecasts, i, 0.0);
-   }
-   //aiEcho("******** Clearing forecasts");
-}
-
-//==============================================================================
-// updateForecasts
-/*
-   Create 3-minute forecast of resource needs for food, wood and gold
-*/
-//==============================================================================
-void updateForecasts()
-{
-   int i=0; 
-   int militaryUnit = -1;
-   int milQty = -1;
-   int popSlots = -1;
-   
-   int effectiveAge = kbGetAge();
-   if ( agingUp() == true )
-      effectiveAge = effectiveAge + 1;
-   
-   int numUnits = 0; // Temp var used to track how many of each item will be needed
-
-   clearForecasts(); // Reset all to zero
-   aiEcho("Starting forecast.  Items included:");
-   
-   
-   int millsNeeded = 1 + ( (kbUnitCount(cMyID, gEconUnit, cUnitStateAlive)*0.5) / cMaxSettlersPerMill);  // Enough for 50% of population
-   millsNeeded = millsNeeded - kbUnitCount(cMyID, gFarmUnit, cUnitStateABQ);
-
-   if ( (gTimeToFarm == true) && (millsNeeded > 0) )
-      addItemToForecasts(gFarmUnit, millsNeeded);   
-   
-   int plantsNeeded = 1 + ( (kbUnitCount(cMyID, gEconUnit, cUnitStateAlive) * 0.4) / cMaxSettlersPerPlantation);  //Enough for 40% of population
-   plantsNeeded = plantsNeeded - kbUnitCount(cMyID, gPlantationUnit, cUnitStateABQ);
-   if ( (plantsNeeded > 0) && (effectiveAge > cAge2) && (gTimeForPlantations == true) )
-      addItemToForecasts(gPlantationUnit, plantsNeeded);  
-   
-   int fishBoats = 0;
-   if (gFishingBoatMaintainPlan >= 0)
-   {
-      fishBoats = aiPlanGetVariableInt(gFishingBoatMaintainPlan, cTrainPlanNumberToMaintain, 0) - kbUnitCount(cMyID, gFishingUnit, cUnitStateABQ);
-      if (kbUnitCount(cMyID, gDockUnit, cUnitStateABQ) < 1)
-         addItemToForecasts(gDockUnit, 1);
-   }
-   if (fishBoats > 3)
-      fishBoats = 3;
-   
-   if (fishBoats > 0)
-      addItemToForecasts(gFishingUnit, fishBoats);
-   
-   
-   
-
-   switch(kbGetAge())
-   {
-      case cAge1:
-      {
-         // Settlers
-         if (cMyCiv != cCivOttomans)   // Ottomans get them free
-         {
-            numUnits = xsArrayGetInt(gTargetSettlerCounts, effectiveAge) - kbUnitCount(cMyID, gEconUnit, cUnitStateAlive);
-            if (numUnits < 5) 
-               numUnits = 5;  // We'll need some next age, anyway.
-            if (numUnits > 10)
-               numUnits = 10;
-            addItemToForecasts(gEconUnit, numUnits);
-         }
-         
-         // Age upgrade
-         if ( agingUp() != true )
-         {
-            if (civIsAsian() == false) {
-              addTechToForecasts(aiGetPoliticianListByIndex(cAge2, 0));
-              addTechToForecasts(aiGetPoliticianListByIndex(cAge2, 0));
-            }
-            else {
-              addItemToForecasts(getPreferredWonderToBuild(cAge2), 1);
-              addItemToForecasts(getPreferredWonderToBuild(cAge2), 1);
-            }
-         }
-        
-         // 3 houses, to overweight them and force early wood gathering
-         if (cMyCiv != cCivXPSioux)
-            addItemToForecasts(gHouseUnit, 3);
-         
-         // One market
-         if (kbUnitCount(cMyID, gMarketUnit, cUnitStateABQ) < 1)
-            addItemToForecasts(gMarketUnit, 1); 
-         
-         // Ottoman - mosque and tech
-         if (cMyCiv == cCivOttomans)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateABQ) < 1)
-               addItemToForecasts(cUnitTypeChurch, 1);
-            if ( (kbTechGetStatus(cTechChurchMilletSystem) == cTechStatusObtainable) || (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateAlive) == 0) )
-            {
-               addTechToForecasts(cTechChurchMilletSystem);
-            }
-            if ( (kbTechGetStatus(cTechChurchGalataTowerDistrict) == cTechStatusObtainable) || (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateAlive) == 0) )
-            {
-               addTechToForecasts(cTechChurchGalataTowerDistrict);
-            }
-         }
-         
-         // Dutch - one bank
-         if (cMyCiv == cCivDutch)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ) < 1)
-               addItemToForecasts(cUnitTypeBank, 1 - kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ));
-         }
-         
-         // And a bit extra wood, since running out is so painful...
-         //xsArraySetInt(gForecasts, cResourceWood, 200 + xsArrayGetInt(gForecasts, cResourceWood));
-         
-         if (gBuildWalls == true)   // Add 500 wood if we're making walls
-            xsArraySetInt(gForecasts, cResourceWood, 500 + xsArrayGetInt(gForecasts, cResourceWood));
-         
-         // Check towers
-         if ( (kbUnitCount(cMyID, gTowerUnit, cUnitStateABQ) < gNumTowers) && (kbUnitCount(cMyID, gEconUnit, cUnitStateAlive) > 9) )
-         {
-            if (cMyCiv != cCivXPAztec)
-               addItemToForecasts(gTowerUnit, gNumTowers - kbUnitCount(cMyID, gTowerUnit, cUnitStateABQ)); 
-         }
-         
-         break;
-      }
-      case cAge2:
-      {
-         // Add a baseline just to make sure we don't get any near-zero resource amounts
-         xsArraySetFloat(gForecasts, cResourceFood, xsArrayGetFloat(gForecasts, cResourceFood) + 300.0);
-         xsArraySetFloat(gForecasts, cResourceWood, xsArrayGetFloat(gForecasts, cResourceWood) + 300.0);
-         xsArraySetFloat(gForecasts, cResourceGold, xsArrayGetFloat(gForecasts, cResourceGold) + 300.0);
-         
-         // Settlers
-         if (cMyCiv != cCivOttomans)   // Ottomans get them free
-         {
-            numUnits = xsArrayGetInt(gTargetSettlerCounts, effectiveAge) - kbUnitCount(cMyID, gEconUnit, cUnitStateAlive);
-            if (numUnits < 5) 
-               numUnits = 5;  // We'll need some next age, anyway.
-            if (numUnits > 12)
-               numUnits = 12;
-            addItemToForecasts(gEconUnit, numUnits);
-         }
-         
-         // Age upgrade
-         //if ( getSettlerShortfall() < 10 )   // Nearing age-up point.
-         if (agingUp() != true )  
-         {
-            if (civIsAsian() == false) {
-              addTechToForecasts(aiGetPoliticianListByIndex(cAge3, 0));
-              if (gSPC == false)
-                addTechToForecasts(aiGetPoliticianListByIndex(cAge3, 0));   // Add it again to make the age 3 upgrade more reliable.
-            }
-            else {
-              addItemToForecasts(getPreferredWonderToBuild(cAge3), 1);
-              if (gSPC == false)
-                addItemToForecasts(getPreferredWonderToBuild(cAge3), 1);
-            }
-         }
-         // 3 houses, to overweight them and force early wood gathering
-         if (cMyCiv != cCivXPSioux)
-            addItemToForecasts(gHouseUnit, 3);
-         
-         // Ottoman - mosque and techs
-         if (cMyCiv == cCivOttomans)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateABQ) < 1)
-               addItemToForecasts(cUnitTypeChurch, 1);
-            if (kbTechGetStatus(cTechChurchKopruluViziers) == cTechStatusObtainable)
-            {
-               addTechToForecasts(cTechChurchKopruluViziers);
-            }
-            if (kbTechGetStatus(cTechChurchGalataTowerDistrict) == cTechStatusObtainable)
-            {
-               addTechToForecasts(cTechChurchGalataTowerDistrict);
-            }
-         }
-         
-         if (gNavyMode == cNavyModeActive)
-         {
-            addItemToForecasts(gCaravelUnit, 2);
-            addItemToForecasts(gGalleonUnit, 1);
-         }
-         
-         // Dutch - two banks
-         if (cMyCiv == cCivDutch)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ) < 2)
-               addItemToForecasts(cUnitTypeBank, 2 - kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ));
-         }
-         
-         // 1 barracks
-         if ( (kbUnitCount(cMyID, cUnitTypeBarracks, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeWarHut, cUnitStateABQ)  + kbUnitCount(cMyID, cUnitTypeypBarracksJapanese, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeypWarAcademy, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeYPBarracksIndian, cUnitStateABQ) ) < 1)
-            addItemToForecasts(cUnitTypeBarracks, 1 - kbUnitCount(cMyID, cUnitTypeBarracks, cUnitStateABQ));         
-         
-         // One stable
-         if ( (kbGetCiv() != cCivChinese) && (kbGetCiv() != cCivSPCChinese) && (kbUnitCount(cMyID, cUnitTypeStable, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeCorral, cUnitStateABQ)  + kbUnitCount(cMyID, cUnitTypeypStableJapanese, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeypCaravanserai, cUnitStateABQ)) < 1)
-            addItemToForecasts(cUnitTypeStable, 1);    
-                  
-
-         // One market
-         if (kbUnitCount(cMyID, gMarketUnit, cUnitStateABQ) < 1)
-            addItemToForecasts(gMarketUnit, 1);    
-         
-         // Add 15 pop slots of primary military unit
-         aiEcho("And the primary military unit is: "+kbUnitPickGetResult( gLandUnitPicker, 0));
-         if (gLandUnitPicker >= 0)
-            militaryUnit = kbUnitPickGetResult( gLandUnitPicker, 0);
-         if (militaryUnit >= 0)
-         {
-            aiEcho("And the unit we're forcasting is: "+kbGetProtoUnitName(militaryUnit));
-            popSlots = kbGetPopSlots(cMyID, militaryUnit);
-            if (popSlots < 1)
-               popSlots = 1;
-            milQty = 15 / popSlots; 
-            addItemToForecasts(militaryUnit, milQty);
-         }            
-         else
-         {
-            xsArraySetInt(gForecasts, cResourceGold, xsArrayGetInt(gForecasts, cResourceGold) + 1000.0);
-            xsArraySetInt(gForecasts, cResourceFood, xsArrayGetInt(gForecasts, cResourceFood) + 1000.0);
-         }
-         
-         // And a bit extra wood, since running out is so painful...
-         xsArraySetInt(gForecasts, cResourceWood, 800 + xsArrayGetInt(gForecasts, cResourceWood));
-         
-         // Check towers
-         if (kbUnitCount(cMyID, gTowerUnit, cUnitStateABQ) < gNumTowers)
-         {
-            if (cMyCiv != cCivXPAztec)
-               addItemToForecasts(gTowerUnit, gNumTowers - kbUnitCount(cMyID, gTowerUnit, cUnitStateABQ)); 
-         }
-         
-         break;
-      }
-      case cAge3:
-      {
-         // Add a baseline just to make sure we don't get any near-zero resource amounts
-         xsArraySetFloat(gForecasts, cResourceFood, xsArrayGetFloat(gForecasts, cResourceFood) + 300.0);
-         xsArraySetFloat(gForecasts, cResourceWood, xsArrayGetFloat(gForecasts, cResourceWood) + 300.0);
-         xsArraySetFloat(gForecasts, cResourceGold, xsArrayGetFloat(gForecasts, cResourceGold) + 300.0);
-         
-         // Settlers
-         if (cMyCiv != cCivOttomans)   // Ottomans get them free
-         {
-            numUnits = xsArrayGetInt(gTargetSettlerCounts, effectiveAge) - kbUnitCount(cMyID, gEconUnit, cUnitStateAlive);
-            if (numUnits > 10)
-               numUnits = 10;
-            addItemToForecasts(gEconUnit, numUnits);
-         }
-                  
-         // Age upgrade
-         //if ( getSettlerShortfall() < 10 )   // Nearing age-up point.
-         if (agingUp() != true )     
-         {
-            if (civIsAsian() == false) {
-              addTechToForecasts(aiGetPoliticianListByIndex(cAge4, 0));
-            }
-            else {
-              addItemToForecasts(getPreferredWonderToBuild(cAge4), 1);
-            }
-         }
-         
-         // 3 houses
-         addItemToForecasts(gHouseUnit, 3);   
-         
-         if (gNavyMode == cNavyModeActive)
-         {
-            addItemToForecasts(gCaravelUnit, 4);
-            addItemToForecasts(gGalleonUnit, 2);
-         }         
-         // Ottoman - mosque and tech
-         if (cMyCiv == cCivOttomans)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateABQ) < 1)
-               addItemToForecasts(cUnitTypeChurch, 1);
-            if (kbTechGetStatus(cTechChurchAbbassidMarket) == cTechStatusObtainable)
-            {
-               addTechToForecasts(cTechChurchAbbassidMarket);
-            }
-            if (kbTechGetStatus(cTechChurchTopkapi) == cTechStatusObtainable)
-            {
-               addTechToForecasts(cTechChurchTopkapi);
-            }
-         }
-         
-         // Dutch - 3 banks
-         if (cMyCiv == cCivDutch)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ) < 3)
-               addItemToForecasts(cUnitTypeBank, 3 - kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ));
-         }
-         
-         // 1 barracks
-         if ( (kbUnitCount(cMyID, cUnitTypeBarracks, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeWarHut, cUnitStateABQ)  + kbUnitCount(cMyID, cUnitTypeypBarracksJapanese, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeypWarAcademy, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeYPBarracksIndian, cUnitStateABQ) ) < 2)
-            addItemToForecasts(cUnitTypeBarracks, 1 - kbUnitCount(cMyID, cUnitTypeBarracks, cUnitStateABQ));         
-         
-         // One stable
-         if ( (kbGetCiv() != cCivChinese) && (kbGetCiv() != cCivSPCChinese) && (kbUnitCount(cMyID, cUnitTypeStable, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeCorral, cUnitStateABQ)  + kbUnitCount(cMyID, cUnitTypeypStableJapanese, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeypCaravanserai, cUnitStateABQ)) < 1)
-            addItemToForecasts(cUnitTypeStable, 1);       
-   
-
-         // 1 artillery depot
-         if (civIsAsian() == false) {
-           if (kbUnitCount(cMyID, cUnitTypeArtilleryDepot, cUnitStateABQ) < 1)
-              addItemToForecasts(cUnitTypeArtilleryDepot, 1);  
-          }
-          else {
-            if (kbUnitCount(cMyID, cUnitTypeypCastle, cUnitStateABQ) < 1)
-              addItemToForecasts(cUnitTypeypCastle, 1);  
-          }
-         
-         // One market
-         if (kbUnitCount(cMyID, gMarketUnit, cUnitStateABQ) < 1)
-            addItemToForecasts(gMarketUnit, 1);  
-         
-         // Add 15 pop slots of primary military unit
-         if (gLandUnitPicker >= 0)
-         {
-            militaryUnit = kbUnitPickGetResult( gLandUnitPicker, 0);
-            if (militaryUnit >= 0)
-            {
-               popSlots = kbGetPopSlots(cMyID, militaryUnit);
-               if (popSlots < 1)
-                  popSlots = 1;
-               milQty = 15 / popSlots; 
-               addItemToForecasts(militaryUnit, milQty);
-            }          
-            else
-            {
-               xsArraySetInt(gForecasts, cResourceGold, xsArrayGetInt(gForecasts, cResourceGold) + 1500.0);
-               xsArraySetInt(gForecasts, cResourceFood, xsArrayGetInt(gForecasts, cResourceFood) + 1500.0);
-            }
-            
-            // Add 8 pop slots of secondary military unit
-            if (kbUnitPickGetNumberResults(gLandUnitPicker) > 1)
-            {
-               militaryUnit = kbUnitPickGetResult( gLandUnitPicker, 1);
-               if (militaryUnit >= 0)
-               {
-                  popSlots = kbGetPopSlots(cMyID, militaryUnit);
-                  if (popSlots < 1)
-                     popSlots = 1;
-                  milQty = 8 / popSlots; 
-                  addItemToForecasts(militaryUnit, milQty);
-               } 
-            }
-         }
-
-         // Check towers
-         if (kbUnitCount(cMyID, gTowerUnit, cUnitStateABQ) < gNumTowers)
-            addItemToForecasts(gTowerUnit, gNumTowers - kbUnitCount(cMyID, gTowerUnit, cUnitStateABQ)); 
-         
-         break;
-      }
-      case cAge4:
-      {
-         // Add a baseline just to make sure we don't get any near-zero resource amounts
-         xsArraySetFloat(gForecasts, cResourceFood, xsArrayGetFloat(gForecasts, cResourceFood) + 400.0);
-         xsArraySetFloat(gForecasts, cResourceWood, xsArrayGetFloat(gForecasts, cResourceWood) + 400.0);
-         xsArraySetFloat(gForecasts, cResourceGold, xsArrayGetFloat(gForecasts, cResourceGold) + 400.0);
-         
-         // Settlers
-         if (cMyCiv != cCivOttomans)   // Ottomans get them free
-         {
-            numUnits = 10;
-            addItemToForecasts(gEconUnit, numUnits);
-         }
-
-         // Age upgrade
-         //if ( getSettlerShortfall() < 10 )   // Nearing age-up point.
-         if (agingUp() != true )    
-         {
-            if (civIsAsian() == false) {
-              addTechToForecasts(aiGetPoliticianListByIndex(cAge5, 0));
-            }
-            else {
-              addItemToForecasts(getPreferredWonderToBuild(cAge5), 1);
-            }
-         }
-         
-         // 3 houses
-         addItemToForecasts(gHouseUnit, 3);   
-         
-         if (gNavyMode == cNavyModeActive)
-         {
-            addItemToForecasts(gCaravelUnit, 4);
-            addItemToForecasts(gGalleonUnit, 2);
-         }
-         
-         // Ottoman - mosque and tech
-         if (cMyCiv == cCivOttomans)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateABQ) < 1)
-               addItemToForecasts(cUnitTypeChurch, 1);
-            if (kbTechGetStatus(cTechChurchTanzimat) == cTechStatusObtainable)
-            {
-               addTechToForecasts(cTechChurchTanzimat);
-            }
-         }
-         
-         // Dutch - 4 banks
-         if (cMyCiv == cCivDutch)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ) < 4)
-               addItemToForecasts(cUnitTypeBank, 4 - kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ));
-         } 
-                  
-         // One church
-         if ( (aiGetWorldDifficulty() < cDifficultyHard) && (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateABQ) < 1) )
-            addItemToForecasts(cUnitTypeChurch, 1);   
-         
-         // 2 barracks
-         if ( (kbUnitCount(cMyID, cUnitTypeBarracks, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeWarHut, cUnitStateABQ)  + kbUnitCount(cMyID, cUnitTypeypBarracksJapanese, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeypWarAcademy, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeYPBarracksIndian, cUnitStateABQ) ) < 2)
-            addItemToForecasts(cUnitTypeBarracks, 1);         
-          
-         // 2 stables
-         if ( (kbGetCiv() != cCivChinese) && (kbGetCiv() != cCivSPCChinese) && (kbUnitCount(cMyID, cUnitTypeStable, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeCorral, cUnitStateABQ)  + kbUnitCount(cMyID, cUnitTypeypStableJapanese, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeypCaravanserai, cUnitStateABQ)) < 2)
-            addItemToForecasts(cUnitTypeStable, 1);    
-
-         // 1 artillery depot
-         if (civIsAsian() == false) {
-           if (kbUnitCount(cMyID, cUnitTypeArtilleryDepot, cUnitStateABQ) < 1)
-              addItemToForecasts(cUnitTypeArtilleryDepot, 1);  
-          }
-          else {
-           if (kbUnitCount(cMyID, cUnitTypeypCastle, cUnitStateABQ) < 1)
-              addItemToForecasts(cUnitTypeypCastle, 1);  
-          }
-         
-         // One market
-         if (kbUnitCount(cMyID, gMarketUnit, cUnitStateABQ) < 1)
-            addItemToForecasts(gMarketUnit, 1);  
-         
-         if (gLandUnitPicker >= 0)
-         {
-            // Add 20 pop slots of primary military unit
-            militaryUnit = kbUnitPickGetResult( gLandUnitPicker, 0);
-            if (militaryUnit >= 0)
-            {
-               popSlots = kbGetPopSlots(cMyID, militaryUnit);
-               if (popSlots < 1)
-                  popSlots = 1;
-               milQty = 20 / popSlots; 
-               addItemToForecasts(militaryUnit, milQty);
-            }         
-            else
-            {
-               xsArraySetInt(gForecasts, cResourceGold, xsArrayGetInt(gForecasts, cResourceGold) + 2000.0);
-               xsArraySetInt(gForecasts, cResourceFood, xsArrayGetInt(gForecasts, cResourceFood) + 2000.0);
-            } 
-            
-            // Add 10 pop slots of secondary military unit
-            if (kbUnitPickGetNumberResults(gLandUnitPicker) > 1)
-            {
-               militaryUnit = kbUnitPickGetResult( gLandUnitPicker, 1);
-               if (militaryUnit >= 0)
-               {
-                  popSlots = kbGetPopSlots(cMyID, militaryUnit);
-                  if (popSlots < 1)
-                     popSlots = 1;
-                  milQty = 10 / popSlots; 
-                  addItemToForecasts(militaryUnit, milQty);
-               } 
-            }
-         }
-         
-         // Check towers
-         if (kbUnitCount(cMyID, gTowerUnit, cUnitStateABQ) < gNumTowers)
-            addItemToForecasts(gTowerUnit, gNumTowers - kbUnitCount(cMyID, gTowerUnit, cUnitStateABQ)); 
-         
-         break;
-      }
-      case cAge5:
-      {
-         // Add a baseline just to make sure we don't get any near-zero resource amounts
-         xsArraySetFloat(gForecasts, cResourceFood, xsArrayGetFloat(gForecasts, cResourceFood) + 500.0);
-         xsArraySetFloat(gForecasts, cResourceWood, xsArrayGetFloat(gForecasts, cResourceWood) + 500.0);
-         xsArraySetFloat(gForecasts, cResourceGold, xsArrayGetFloat(gForecasts, cResourceGold) + 500.0);
-         
-         // Settlers
-         if (cMyCiv != cCivOttomans)   // Ottomans get them free
-         {
-            numUnits = 10;
-            addItemToForecasts(gEconUnit, numUnits);
-         }
-         
-         // 3 houses
-         addItemToForecasts(gHouseUnit, 3);   
-                  
-         if (gNavyMode == cNavyModeActive)
-         {
-            addItemToForecasts(gCaravelUnit, 4);
-            addItemToForecasts(gGalleonUnit, 2);
-         }
-         
-         // Ottoman - mosque and tech
-         if (cMyCiv == cCivOttomans)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateABQ) < 1)
-               addItemToForecasts(cUnitTypeChurch, 1);
-            if (kbTechGetStatus(cTechChurchTopkapi) == cTechStatusObtainable)
-            {
-               addTechToForecasts(cTechChurchTopkapi);
-            }
-         }
-         
-         // Dutch - 4 banks
-         if (cMyCiv == cCivDutch)
-         {
-            if (kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ) < 4)
-               addItemToForecasts(cUnitTypeBank, 4 - kbUnitCount(cMyID, cUnitTypeBank, cUnitStateABQ));
-         } 
-                  
-         // One church
-         if ( (aiGetWorldDifficulty() < cDifficultyHard) && (kbUnitCount(cMyID, cUnitTypeChurch, cUnitStateABQ) < 1) )
-            addItemToForecasts(cUnitTypeChurch, 1);    
-         
-         // 2 barracks
-         if ( (kbUnitCount(cMyID, cUnitTypeBarracks, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeWarHut, cUnitStateABQ)  + kbUnitCount(cMyID, cUnitTypeypBarracksJapanese, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeypWarAcademy, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeYPBarracksIndian, cUnitStateABQ) ) < 2)
-            addItemToForecasts(cUnitTypeBarracks, 1);         
-          
-         // 2 stables
-         if ( (kbGetCiv() != cCivChinese) && (kbGetCiv() != cCivSPCChinese) && (kbUnitCount(cMyID, cUnitTypeStable, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeCorral, cUnitStateABQ)  + kbUnitCount(cMyID, cUnitTypeypStableJapanese, cUnitStateABQ) + kbUnitCount(cMyID, cUnitTypeypCaravanserai, cUnitStateABQ)) < 2)
-            addItemToForecasts(cUnitTypeStable, 1);               
-
-         // 1 artillery depot
-         if (civIsAsian() == false) {
-           if (kbUnitCount(cMyID, cUnitTypeArtilleryDepot, cUnitStateABQ) < 1)
-              addItemToForecasts(cUnitTypeArtilleryDepot, 1);
-          }
-          else {
-            if (kbUnitCount(cMyID, cUnitTypeypCastle, cUnitStateABQ) < 1)
-              addItemToForecasts(cUnitTypeypCastle, 1);
-          }
-            
-         
-         // One market
-         if (kbUnitCount(cMyID, gMarketUnit, cUnitStateABQ) < 1)
-            addItemToForecasts(gMarketUnit, 1);  
-         
-         if (gLandUnitPicker >= 0)
-         {
-            // Add 30 pop slots of primary military unit
-            militaryUnit = kbUnitPickGetResult( gLandUnitPicker, 0);
-            if (militaryUnit >= 0)
-            {
-               popSlots = kbGetPopSlots(cMyID, militaryUnit);
-               if (popSlots < 1)
-                  popSlots = 1;
-               milQty = 30 / popSlots; 
-               addItemToForecasts(militaryUnit, milQty);
-            } 
-            
-            // Add 15 pop slots of secondary military unit
-            if (kbUnitPickGetNumberResults(gLandUnitPicker) > 1)
-            {
-               militaryUnit = kbUnitPickGetResult( gLandUnitPicker, 1);
-               if (militaryUnit >= 0)
-               {
-                  popSlots = kbGetPopSlots(cMyID, militaryUnit);
-                  if (popSlots < 1)
-                     popSlots = 1;
-                  milQty = 15 / popSlots; 
-                  addItemToForecasts(militaryUnit, milQty);
-               } 
-            }   
-         }
-         break;
-      }
-   }
-   spewForecasts();
-   updatePrices();   // Set the aicost weights, buy/sell resources as needed.
-}
-
-
 void updateResources()
 {
    const int cMinResourcePerGatherer = 200;   // When our supply gets below this level, start farming/plantations.
@@ -5062,12 +4422,6 @@ void econMaster(int mode=-1, int value=-1)
 {
    // Monitor main base supply of food and gold, activate farming and plantations when resources run low
    updateResources();
- 
-
-   // Update forecasts for economic and military expenses.  Set resource
-   // exchange rates.
-   updateForecasts();      
-
 
    // Set desired gatherer ratios.  Spread them out per base, set per-base 
    // resource breakdowns.
