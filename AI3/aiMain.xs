@@ -3713,9 +3713,6 @@ minInterval 10
         gAgeUpTime = xsGetTime();
 
         kbBaseSetMaximumResourceDistance(cMyID, kbBaseGetMainID(cMyID), 150.0);
-
-        if (aiGetWorldDifficulty() < cDifficultyHard)
-            xsEnableRule("townWatch");
     }
 }
 
@@ -3737,23 +3734,6 @@ minInterval 10
 
         xsDisableSelf();
         gAgeUpTime = xsGetTime();
-    }
-}
-
-rule townWatch
-inactive
-minInterval 120
-{
-    if (kbTechGetStatus(cTechChurchTownWatch) == cTechStatusActive)
-    {
-        xsDisableSelf();
-        return;
-    }
-
-    if (kbTechGetStatus(cTechChurchTownWatch) == cTechStatusObtainable)
-    {
-        createSimpleResearchPlan(cTechChurchTownWatch, getUnit(cUnitTypeChurch), 50);
-        xsDisableSelf();
     }
 }
 
