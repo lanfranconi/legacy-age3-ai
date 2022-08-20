@@ -7183,7 +7183,6 @@ void SPCInit(void)
 
     if ((cRandomMapName == "amazonia") || (cRandomMapName == "caribbean") || (cRandomMapName == "Ceylon") || (cRandomMapName == "Borneo") || (cRandomMapName == "Honshu"))
     {
-        aiSetWaterMap(true);
         gWaterMap = true;
     }
 }
@@ -12062,6 +12061,10 @@ void main(void)
 
     // Do some overrides for the SPC/campaign games before the loader file wakes up.
     SPCInit();
+
+    // Always indicate that the map is a water map even if it isn't.
+    // This will allow us to create transport plans anywhere.
+    aiSetWaterMap(true);
 
     // Find out what our personality is, init variables from it.
     initPersonality();
