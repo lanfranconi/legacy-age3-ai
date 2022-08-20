@@ -2527,7 +2527,7 @@ void findEnemyBase(void)
     int exploreID = aiPlanCreate("Probe Enemy Base", cPlanExplore);
     if (exploreID >= 0)
     {
-        aiPlanAddUnitType(exploreID, cUnitTypeLogicalTypeScout, 1, 1, 1);
+        aiPlanAddUnitType(exploreID, cUnitTypeLogicalTypeValidSharpshoot, 1, 1, 1);
         aiPlanAddWaypoint(exploreID, targetLocation);
         aiPlanSetVariableBool(exploreID, cExplorePlanDoLoops, 0, false);
         aiPlanSetVariableBool(exploreID, cExplorePlanQuitWhenPointIsVisible, 0, true);
@@ -10285,7 +10285,7 @@ minInterval 10
                 }
                 else
                 {
-                    aiPlanAddUnitType(gLandExplorePlan, cUnitTypeLogicalTypeScout, 1, 1, 1);
+                    aiPlanAddUnitType(gLandExplorePlan, cUnitTypeLogicalTypeValidSharpshoot, 1, 1, 1);
                     aiPlanAddUnitType(gLandExplorePlan, cUnitTypeExplorer, 0, 0, 0);
                     aiPlanSetVariableBool(gLandExplorePlan, cExplorePlanOkToGatherNuggets, 0, false);
                     exploreMode = cExploreModeStaff;
@@ -10342,7 +10342,7 @@ minInterval 10
                     }
 
                     aiPlanAddUnitType(gLandExplorePlan, cUnitTypeExplorer, 0, 0, 0);
-                    aiPlanAddUnitType(gLandExplorePlan, cUnitTypeLogicalTypeScout, 1, 1, 1);
+                    aiPlanAddUnitType(gLandExplorePlan, cUnitTypeLogicalTypeValidSharpshoot, 1, 1, 1);
                     aiPlanSetNoMoreUnits(gLandExplorePlan, false);
                     aiPlanSetVariableInt(gLandExplorePlan, cExplorePlanNumberOfLoops, 0, 0);
                     aiPlanSetVariableBool(gLandExplorePlan, cExplorePlanDoLoops, 0, false);
@@ -10354,7 +10354,7 @@ minInterval 10
             if (cvOkToGatherNuggets == false)
             {
                 aiPlanAddUnitType(gLandExplorePlan, cUnitTypeExplorer, 0, 0, 0);
-                aiPlanAddUnitType(gLandExplorePlan, cUnitTypeLogicalTypeScout, 1, 1, 1);
+                aiPlanAddUnitType(gLandExplorePlan, cUnitTypeLogicalTypeValidSharpshoot, 1, 1, 1);
                 aiPlanSetNoMoreUnits(gLandExplorePlan, false);
                 aiPlanSetVariableInt(gLandExplorePlan, cExplorePlanNumberOfLoops, 0, 0);
                 aiPlanSetVariableBool(gLandExplorePlan, cExplorePlanDoLoops, 0, false);
