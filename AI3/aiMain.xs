@@ -63,7 +63,6 @@ extern int gSettlerMaintainPlan = -1; // Main plan to control settler population
 
 extern int gWaterTransportUnitMaintainPlan = -1; // The plan that maintains all the ships
 extern int gWaterExplorePlan = -1;               // Plan ID for ocean exploration plan
-extern bool gWaterMap = false;                   // True when we are on a water map
 extern int gNavyDefendPlan = -1;
 
 extern vector gTCSearchVector = cInvalidVector; // Used to define the center of the TC building placement search.
@@ -453,6 +452,17 @@ bool agingUp()
         aiPlanGetState(gAgeUpResearchPlan) == cPlanStateResearch ||
         // Asians are ageing up with buildings (wonders)
         aiPlanGetState(gAgeUpResearchPlan) == cPlanStateBuild);
+}
+
+bool isTransportAllowed(void)
+{
+    return(
+        cRandomMapName == "amazonia" || 
+        cRandomMapName == "caribbean" || 
+        cRandomMapName == "Ceylon" || 
+        cRandomMapName == "Borneo" || 
+        cRandomMapName == "Honshu"
+    );
 }
 
 int getWonderToBuild(int the_age = -1)
@@ -1117,7 +1127,7 @@ void chooseConsulateFlag()
 
     if ((kbGetCiv() == cCivJapanese) || (kbGetCiv() == cCivSPCJapanese) || (kbGetCiv() == cCivSPCJapanese))
     {
-        if (gWaterMap == true)
+        if (isTransportAllowed() == true)
         {
             flag_button_id = cTechypBigConsulatePortuguese;
         }
@@ -1159,7 +1169,7 @@ void chooseConsulateFlag()
     }
     else if ((kbGetCiv() == cCivIndians) || (kbGetCiv() == cCivSPCIndians))
     {
-        if (gWaterMap == true)
+        if (isTransportAllowed() == true)
         {
             flag_button_id = cTechypBigConsulatePortuguese;
         }
@@ -5292,7 +5302,7 @@ minInterval 2
         }
     }
 
-    if (gWaterMap == true)
+    if (isTransportAllowed() == true)
         gWaterTransportUnitMaintainPlan = createSimpleMaintainPlan(gCaravelUnit, 1, true, kbBaseGetMainID(cMyID), 1);
 
     if (aiGetGameMode() == cGameModeDeathmatch)
@@ -7179,11 +7189,6 @@ void SPCInit(void)
         { // Need fewer coureurs
             xsArraySetInt(gTargetSettlerCounts, i, xsArrayGetInt(gTargetSettlerCounts, i) * 0.9);
         }
-    }
-
-    if ((cRandomMapName == "amazonia") || (cRandomMapName == "caribbean") || (cRandomMapName == "Ceylon") || (cRandomMapName == "Borneo") || (cRandomMapName == "Honshu"))
-    {
-        gWaterMap = true;
     }
 }
 
