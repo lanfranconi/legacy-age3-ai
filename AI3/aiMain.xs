@@ -3806,8 +3806,9 @@ void addMillBuildPlan(void)
 rule updateFoodBreakdown
 inactive
 group tcComplete
-minInterval 29
+minInterval 5
 {
+    xsSetRuleMinIntervalSelf(29);
     int numberMills = kbUnitCount(cMyID, gFarmUnit, cUnitStateAlive);
     const int cMaxSettlersPerHuntPlan = 12;
     const int cMinSettlersPerHuntPlan = 3; // Must be much less than Max/2 to avoid thrashing
@@ -3888,8 +3889,10 @@ minInterval 29
 rule updateWoodBreakdown
 inactive
 group tcComplete
-minInterval 30
+minInterval 5
 {
+    xsSetRuleMinIntervalSelf(30);
+
     float percentOnWood = aiGetResourceGathererPercentage(cResourceWood, cRGPActual);
     int numWoodGatherers = percentOnWood * (kbUnitCount(cMyID, gEconUnit, cUnitStateAlive) + kbUnitCount(cMyID, cUnitTypeSettlerWagon, cUnitStateAlive));
     static int numWoodPlans = 0; // How many are currently requested?  Try to avoid thrashing this number
@@ -3923,8 +3926,10 @@ minInterval 30
 rule updateGoldBreakdown
 inactive
 group tcComplete
-minInterval 31
+minInterval 5
 {
+    xsSetRuleMinIntervalSelf(31);
+
     static int numberGoldPlans = 0;
 
     // int numberMines = kbUnitCount(cMyID, cUnitTypeMine, cUnitStateAlive);
@@ -5340,16 +5345,6 @@ minInterval 10
         aiTaskUnitMove(coveredWagon, gTCSearchVector);
         startTCBuildPlan(gTCSearchVector);
     }
-}
-
-rule reInitGatherers
-inactive
-group tcComplete
-minInterval 5
-{
-    updateFoodBreakdown(); // Reinit each gatherer breakdown in case initial pass didn't yet have proper "actual" assignments.
-    updateWoodBreakdown();
-    updateGoldBreakdown();
 }
 
 //==============================================================================
