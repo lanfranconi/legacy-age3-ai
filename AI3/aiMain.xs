@@ -5310,8 +5310,6 @@ minInterval 10
     if (buildPlan >= 0)
         return;
 
-    static float nextRadius = 50.0;
-
     aiEcho("Starting a new TC build plan.");
     // Make a town center, pri 100, econ, main base, 1 builder (explorer).
     buildPlan = aiPlanCreate("TC Build plan explorer", cPlanBuild);
@@ -5337,8 +5335,7 @@ minInterval 10
 
     // Instead of base ID or areas, use a center position and falloff.
     aiPlanSetVariableVector(buildPlan, cBuildPlanCenterPosition, 0, kbBaseGetLocation(cMyID, kbBaseGetMainID(cMyID)));
-    aiPlanSetVariableFloat(buildPlan, cBuildPlanCenterPositionDistance, 0, nextRadius);
-    nextRadius = nextRadius + 50.0; // If it fails again, search even farther out.
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanCenterPositionDistance, 0, 100.0);
 
     // Add position influences for trees, gold
     aiPlanSetNumberVariableValues(buildPlan, cBuildPlanInfluenceUnitTypeID, 3, true);
