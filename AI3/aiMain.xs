@@ -181,8 +181,6 @@ mutable void endDefenseReflex(void) {}
 
 extern int gMapNames = -1; // An array of random map names, so we can store ID numbers in player histories
 
-extern int gTargetSettlerCounts = -1; // How many settlers do we want per age?
-
 extern int gConsulateTechs = -1;     // List of all the consulate techs
 extern int gConsulateTechsSize = -1; // Size of the list of all the consulate techs
 
@@ -242,13 +240,6 @@ void initArrays(void)
     xsArraySetString(gMapNames, 43, "siberia");
     xsArraySetString(gMapNames, 44, "siberiaLarge");
     xsArraySetString(gMapNames, 45, "silkRoadLarge");
-
-    gTargetSettlerCounts = xsArrayCreateInt(cAge5 + 1, 0, "Target Settler Counts");
-    xsArraySetInt(gTargetSettlerCounts, cAge1, 20);
-    xsArraySetInt(gTargetSettlerCounts, cAge2, 45);
-    xsArraySetInt(gTargetSettlerCounts, cAge3, 60);
-    xsArraySetInt(gTargetSettlerCounts, cAge4, 70);
-    xsArraySetInt(gTargetSettlerCounts, cAge5, 70);
 
     // BHG: JFR: if we are in deatmatch we dont want to research the consulate tech that takes us to age 5
     if (aiGetGameMode() == cGameModeDeathmatch)
@@ -432,17 +423,6 @@ bool civIsNative(void)
 bool civIsAsian(void)
 {
     return (cMyCulture == cCultureJapanese || cMyCulture == cCultureChinese || cMyCulture == cCultureIndian);
-}
-
-int getSettlerShortfall()
-{ // How many more Settlers do we currently want?
-    int retVal = 0;
-    float villTarget = xsArrayGetInt(gTargetSettlerCounts, kbGetAge()); // How many we want to have this age
-    float villCount = kbUnitCount(cMyID, gEconUnit, cUnitStateABQ);     // How many we have
-
-    retVal = villTarget - villCount;
-
-    return (retVal);
 }
 
 bool agingUp()
@@ -2169,53 +2149,6 @@ float getLowestResourceAmount()
 }
 
 //==============================================================================
-// updateSettlerCounts
-/*
-   Set the settler maintain plan according to age and our behavior traits
-*/
-//==============================================================================
-void updateSettlerCounts(void)
-{
-    int normalTarget = xsArrayGetInt(gTargetSettlerCounts, kbGetAge());
-    if (kbGetAge() == cvMaxAge) // If we're capped at this age, build our full complement of villagers.
-        normalTarget = xsArrayGetInt(gTargetSettlerCounts, cAge5);
-    int modifiedTarget = normalTarget;
-
-    switch (kbGetAge())
-    {
-    case cAge1:
-    {
-        modifiedTarget = normalTarget - (5.0 * btRushBoom); // Rushers five less, boomers 5 more
-        break;
-    }
-    case cAge2:
-    {
-        modifiedTarget = normalTarget + (5.0 * btRushBoom); //  Rushers 5 more (stay in age 2 longer), boomers 5 less (go to age 3 ASAP)
-        break;
-    }
-    case cAge3:
-    {
-        modifiedTarget = normalTarget - (10.0 * btRushBoom); //  Boomers 10 more, i.e. boom now means 'more econ'.
-        break;
-    }
-    case cAge4:
-    {
-        modifiedTarget = normalTarget - (10.0 * btRushBoom);
-        break;
-    }
-    case cAge5:
-    {
-        modifiedTarget = normalTarget - (10.0 * btRushBoom);
-        break;
-    }
-    }
-    if (kbGetCiv() != cCivOttomans)
-        aiPlanSetVariableInt(gSettlerMaintainPlan, cTrainPlanNumberToMaintain, 0, modifiedTarget);
-    else
-        aiPlanSetVariableInt(gSettlerMaintainPlan, cTrainPlanNumberToMaintain, 0, 0);
-}
-
-//==============================================================================
 // updateGatherers
 /*
    Given the desired allocation of gatherers, set the desired number
@@ -3651,7 +3584,6 @@ minInterval 5
 
         findEnemyBase(); // Create a one-off explore plan to probe the likely enemy base location.
         updateGatherers();
-        updateSettlerCounts();
         if (kbGetCiv() == cCivChinese)
         {
             int planid2 = createSimpleResearchPlan(cTechypVillagePopCapIncrease, getUnit(cUnitTypeypVillage), 85);
@@ -3685,8 +3617,6 @@ minInterval 10
     {
         aiEcho("*** We're in age 3.");
 
-        // Bump up settler train plan
-        updateSettlerCounts();
         if (kbGetCiv() == cCivChinese)
         {
             int planid = createSimpleResearchPlan(cTechypVillagePopCapIncrease2, getUnit(cUnitTypeypVillage), 85);
@@ -3715,9 +3645,6 @@ minInterval 10
     {
         aiEcho("*** We're in age 4.");
 
-        // Bump up settler train plan
-        updateSettlerCounts();
-
         xsDisableSelf();
         xsEnableRule("age5Monitor");
         gAgeUpTime = xsGetTime();
@@ -3739,8 +3666,6 @@ minInterval 10
     if (kbGetAge() >= cAge5)
     {
         aiEcho("*** We're in age 5.");
-        // Bump up settler train plan
-        updateSettlerCounts();
 
         xsDisableSelf();
         gAgeUpTime = xsGetTime();
@@ -4270,9 +4195,6 @@ void econMaster(int mode = -1, int value = -1)
     // Set desired gatherer ratios.  Spread them out per base, set per-base
     // resource breakdowns.
     updateGatherers();
-
-    // Update our settler maintain targets, based on age, personality.
-    updateSettlerCounts();
 }
 
 //==============================================================================
@@ -5281,13 +5203,17 @@ minInterval 2
     }
 
     if (kbGetCiv() == cCivOttomans)
+    {
         xsEnableRule("ottomanMonitor");
-
-    //   gSettlerMaintainPlan = createSimpleMaintainPlan(gEconUnit, 25 - (13.0*btRushBoom), true, kbBaseGetMainID(cMyID), 1);  // Good through age 2
-    gSettlerMaintainPlan = createSimpleMaintainPlan(gEconUnit, xsArrayGetInt(gTargetSettlerCounts, kbGetAge()), true, kbBaseGetMainID(cMyID), 1);
-
-    if (kbGetCiv() == cCivOttomans)
-        aiPlanSetVariableInt(gSettlerMaintainPlan, cTrainPlanNumberToMaintain, 0, 0); // To not throw off resource planning
+    }
+    else
+    {
+        //   gSettlerMaintainPlan = createSimpleMaintainPlan(gEconUnit, 25 - (13.0*btRushBoom), true, kbBaseGetMainID(cMyID), 1);  // Good through age 2
+        int settlerLimit = kbGetBuildLimit(cMyID, gEconUnit);
+        if (settlerLimit == -1) // Unlimited
+            settlerLimit = 100;
+        gSettlerMaintainPlan = createSimpleMaintainPlan(gEconUnit, settlerLimit, true, kbBaseGetMainID(cMyID), 1);
+    }
 
     if ((kbGetCiv() == cCivJapanese) || (kbGetCiv() == cCivSPCJapanese) || (kbGetCiv() == cCivSPCJapaneseEnemy))
     {
@@ -7181,15 +7107,6 @@ void SPCInit(void)
     // Taunt defaults to true, but needs to be false in scenario games.
     if (gSPC == true)
         cvOkToTaunt = false;
-
-    if (kbGetCiv() == cCivFrench)
-    {
-        int i = 0;
-        for (i = 0; <= cAge5)
-        { // Need fewer coureurs
-            xsArraySetInt(gTargetSettlerCounts, i, xsArrayGetInt(gTargetSettlerCounts, i) * 0.9);
-        }
-    }
 }
 
 int gCardNames = -1;      // Array of strings, handy name for this card.
@@ -8282,13 +8199,7 @@ minInterval 5
 //==============================================================================
 /* rule ageUpgradeMonitor
 
-   This rule decides when it makes sense to work toward an age upgrade.  When that
-   time comes, it shifts the normal escrow accounts to zero, sets the upgrade account
-   to 100%, and reallocates everything.
-
-   This causes the upgrade account to take everything it needs until the age upgrade
-   is complete.  The escrows are restored in the next age's 'monitor' rule, i.e.
-   the age2monitor, age3Monitor, etc.
+   Age up whenever we can afford to age up.
 */
 //==============================================================================
 
@@ -8311,46 +8222,11 @@ minInterval 10
     if (kbGetAge() >= cvMaxAge)
         return; // Don't disable, this var could change later...
 
-    // Check if we're over the deadline.
-    int deadline = -1;
-    if (kbGetAge() < cAge5)
-        deadline = xsArrayGetInt(gTargetSettlerCounts, kbGetAge());
-
     int politician = -1;
 
-    /*
-       if ( (deadline >= 0) && (kbUnitCount(cMyID, gEconUnit, cUnitStateAlive) >= deadline) )
-       {
-          // A deadline has been set, and we've reached it.  Try to do an emergency buy.  Failing that, freeze spending until we succeed.
-          politician = aiGetPoliticianChoice(kbGetAge()+1);    // Get the specified politician
-          if (politician < 0)     //None specified, need one...
-             politician = aiGetPoliticianListByIndex(kbGetAge()+1, 0);   // Pick the first in the list
-
-          if (lastAgeFrozen < kbGetAge())  // We haven't done a freeze yet this age, do it...
-          {
-             lastAgeFrozen = kbGetAge();
-             if ( (aiPlanGetState(gAgeUpResearchPlan) < 0) || (aiPlanGetState(gAgeUpResearchPlan) == cPlanStateNone) )
-             {  // No plan exists, or it exists and is waiting on resources.  (It would be state 'research' if it had already paid for it.)
-                aiEcho("**** Freezing spending for "+kbGetTechName(politician)+" "+politician+"****");
-                if (kbTechCostPerResource(politician, cResourceFood) > 0.0)
-                   aiResourceLock(cResourceFood);
-                if (kbTechCostPerResource(politician, cResourceWood) > 0.0)
-                   aiResourceLock(cResourceWood);
-                if (kbTechCostPerResource(politician, cResourceGold) > 0.0)
-                   aiResourceLock(cResourceGold);
-             }
-          }
-
-          if ( aiPlanGetState(gAgeUpResearchPlan) < 0)    // If the plan wasn't already active, create it.
-          {
-             gAgeUpResearchPlan = createSimpleResearchPlan(politician, -1, 99);
-          }
-          return;
-       }
-    */
     if (civIsAsian() == false)
     {
-        // Not at deadline...see if we can afford the preferred politician
+        // See if we can afford the preferred politician
         politician = aiGetPoliticianChoice(kbGetAge() + 1);             // Get the specified politician
         if (politician < 0)                                             // None specified, need one...
             politician = aiGetPoliticianListByIndex(kbGetAge() + 1, 0); // Pick the first in the list
@@ -8409,7 +8285,7 @@ minInterval 10
     }
     else
     { // We are Asian, time to build a wonder
-        // Not at deadline...see if we can afford the preferred politician
+        // See if we can afford the preferred politician
         politician = getPreferredWonderToBuild(kbGetAge() + 1); // Get the specified wonder
 
         // Quit if we already have a plan in the works
@@ -8540,8 +8416,6 @@ void shipGrantedHandler(int parm = -1) // Event handler
             totalValue = totalValue * econBias; // Boomers prefer this, rushers rather skip.
             if (homeBaseUnderAttack == true)
                 totalValue = 1.0;                 // Tiny...ANYTHING else is better
-            if (getSettlerShortfall() < qtyAvail) // We have enough settlers
-                totalValue = 0.0;
             break;
         }
         case cUnitTypeGalley:
