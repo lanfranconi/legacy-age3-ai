@@ -5325,46 +5325,15 @@ minInterval 10
     // Escrow.
     aiPlanSetEscrowID(buildPlan, cEconomyEscrowID);
     // Builders.
-    switch (kbGetCiv())
-    {
-    case cCivXPAztec:
-    {
-        aiPlanAddUnitType(buildPlan, cUnitTypexpAztecWarchief, 1, 1, 1);
-        break;
-    }
-    case cCivXPIroquois:
-    {
-        aiPlanAddUnitType(buildPlan, cUnitTypexpIroquoisWarChief, 1, 1, 1);
-        break;
-    }
-    case cCivXPSioux:
-    {
-        aiPlanAddUnitType(buildPlan, cUnitTypexpLakotaWarchief, 1, 1, 1);
-        break;
-    }
-    case cCivChinese:
-    {
-        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkChinese, 1, 1, 1);
-        break;
-    }
-    case cCivIndians:
-    {
-        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkIndian, 1, 1, 1);
-        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkIndian2, 1, 1, 1);
-        break;
-    }
-    case cCivJapanese:
-    {
-        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkJapanese, 1, 1, 1);
-        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkJapanese2, 1, 1, 1);
-        break;
-    }
-    default:
-    {
-        aiPlanAddUnitType(buildPlan, cUnitTypeExplorer, 1, 1, 1);
-        break;
-    }
-    }
+    aiPlanAddUnitType(buildPlan, cUnitTypexpAztecWarchief, 1, 1, 1);
+    aiPlanAddUnitType(buildPlan, cUnitTypexpIroquoisWarChief, 1, 1, 1);
+    aiPlanAddUnitType(buildPlan, cUnitTypexpLakotaWarchief, 1, 1, 1);
+    aiPlanAddUnitType(buildPlan, cUnitTypeypMonkChinese, 1, 1, 1);
+    aiPlanAddUnitType(buildPlan, cUnitTypeypMonkIndian, 1, 1, 1);
+    aiPlanAddUnitType(buildPlan, cUnitTypeypMonkIndian2, 1, 1, 1);
+    aiPlanAddUnitType(buildPlan, cUnitTypeypMonkJapanese, 1, 1, 1);
+    aiPlanAddUnitType(buildPlan, cUnitTypeypMonkJapanese2, 1, 1, 1);
+    aiPlanAddUnitType(buildPlan, cUnitTypeExplorer, 1, 1, 1);
 
     // Instead of base ID or areas, use a center position and falloff.
     aiPlanSetVariableVector(buildPlan, cBuildPlanCenterPosition, 0, kbBaseGetLocation(cMyID, kbBaseGetMainID(cMyID)));
