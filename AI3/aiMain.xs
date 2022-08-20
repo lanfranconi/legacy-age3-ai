@@ -5295,6 +5295,110 @@ minInterval 10
     }
 }
 
+/* rule tcMonitor
+ * 
+ * Rebuild the town center when it's down.
+ */
+rule tcMonitor
+inactive
+minInterval 10
+{
+    if (cvOkToBuild == false || xsGetTime() < 60000 || kbUnitCount(cMyID, cUnitTypeTownCenter, cUnitStateABQ) >= 1)
+        return;
+    
+    int buildPlan = aiPlanGetIDByTypeAndVariableType(cPlanBuild, cBuildPlanBuildingTypeID, cUnitTypeTownCenter, true);
+    if (buildPlan >= 0)
+        return;
+
+    static float nextRadius = 50.0;
+
+    aiEcho("Starting a new TC build plan.");
+    // Make a town center, pri 100, econ, main base, 1 builder (explorer).
+    buildPlan = aiPlanCreate("TC Build plan explorer", cPlanBuild);
+    // What to build
+    aiPlanSetVariableInt(buildPlan, cBuildPlanBuildingTypeID, 0, cUnitTypeTownCenter);
+    // Priority.
+    aiPlanSetDesiredPriority(buildPlan, 100);
+    // Mil vs. Econ.
+    aiPlanSetMilitary(buildPlan, false);
+    aiPlanSetEconomy(buildPlan, true);
+    // Escrow.
+    aiPlanSetEscrowID(buildPlan, cEconomyEscrowID);
+    // Builders.
+    switch (kbGetCiv())
+    {
+    case cCivXPAztec:
+    {
+        aiPlanAddUnitType(buildPlan, cUnitTypexpAztecWarchief, 1, 1, 1);
+        break;
+    }
+    case cCivXPIroquois:
+    {
+        aiPlanAddUnitType(buildPlan, cUnitTypexpIroquoisWarChief, 1, 1, 1);
+        break;
+    }
+    case cCivXPSioux:
+    {
+        aiPlanAddUnitType(buildPlan, cUnitTypexpLakotaWarchief, 1, 1, 1);
+        break;
+    }
+    case cCivChinese:
+    {
+        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkChinese, 1, 1, 1);
+        break;
+    }
+    case cCivIndians:
+    {
+        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkIndian, 1, 1, 1);
+        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkIndian2, 1, 1, 1);
+        break;
+    }
+    case cCivJapanese:
+    {
+        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkJapanese, 1, 1, 1);
+        aiPlanAddUnitType(buildPlan, cUnitTypeypMonkJapanese2, 1, 1, 1);
+        break;
+    }
+    default:
+    {
+        aiPlanAddUnitType(buildPlan, cUnitTypeExplorer, 1, 1, 1);
+        break;
+    }
+    }
+
+    // Instead of base ID or areas, use a center position and falloff.
+    aiPlanSetVariableVector(buildPlan, cBuildPlanCenterPosition, 0, kbBaseGetLocation(cMyID, kbBaseGetMainID(cMyID)));
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanCenterPositionDistance, 0, nextRadius);
+    nextRadius = nextRadius + 50.0; // If it fails again, search even farther out.
+
+    // Add position influences for trees, gold
+    aiPlanSetNumberVariableValues(buildPlan, cBuildPlanInfluenceUnitTypeID, 3, true);
+    aiPlanSetNumberVariableValues(buildPlan, cBuildPlanInfluenceUnitDistance, 3, true);
+    aiPlanSetNumberVariableValues(buildPlan, cBuildPlanInfluenceUnitValue, 3, true);
+    aiPlanSetNumberVariableValues(buildPlan, cBuildPlanInfluenceUnitFalloff, 3, true);
+    aiPlanSetVariableInt(buildPlan, cBuildPlanInfluenceUnitTypeID, 0, cUnitTypeWood);
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanInfluenceUnitDistance, 0, 30.0);           // 30m range.
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanInfluenceUnitValue, 0, 10.0);              // 10 points per tree
+    aiPlanSetVariableInt(buildPlan, cBuildPlanInfluenceUnitFalloff, 0, cBPIFalloffLinear); // Linear slope falloff
+    aiPlanSetVariableInt(buildPlan, cBuildPlanInfluenceUnitTypeID, 1, cUnitTypeMine);
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanInfluenceUnitDistance, 1, 40.0);           // 40 meter range for gold
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanInfluenceUnitValue, 1, 100.0);             // 100 points each
+    aiPlanSetVariableInt(buildPlan, cBuildPlanInfluenceUnitFalloff, 1, cBPIFalloffLinear); // Linear slope falloff
+    aiPlanSetVariableInt(buildPlan, cBuildPlanInfluenceUnitTypeID, 2, cUnitTypeMine);
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanInfluenceUnitDistance, 2, 20.0);         // 20 meter inhibition to keep some space
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanInfluenceUnitValue, 2, -100.0);          // -100 points each
+    aiPlanSetVariableInt(buildPlan, cBuildPlanInfluenceUnitFalloff, 2, cBPIFalloffNone); // Cliff falloff
+
+    // Weight it to prefer the general starting neighborhood
+    aiPlanSetVariableVector(buildPlan, cBuildPlanInfluencePosition, 0, kbBaseGetLocation(cMyID, kbBaseGetMainID(cMyID))); // Position inflence for landing position
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanInfluencePositionDistance, 0, 200.0);                                     // 200m range.
+    aiPlanSetVariableFloat(buildPlan, cBuildPlanInfluencePositionValue, 0, 300.0);                                        // 500 points max
+    aiPlanSetVariableInt(buildPlan, cBuildPlanInfluencePositionFalloff, 0, cBPIFalloffLinear);                            // Linear slope falloff
+
+    // Activate
+    aiPlanSetActive(buildPlan);
+}
+
 //==============================================================================
 /* House monitor
 
