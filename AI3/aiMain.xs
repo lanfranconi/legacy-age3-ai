@@ -4731,58 +4731,6 @@ int baseBuildingCount(int baseID = -1)
 }
 
 //==============================================================================
-// useLevy
-//==============================================================================
-rule useLevy
-inactive
-group tcComplete
-minInterval 10
-{
-    // Check to see if town is being overrun.  If so, generate a plan
-    // to 'research' levy.  If plan is active but enemies disappear,
-    // kill it.  Once research is complete, end this rule.
-
-    static int levyPlan = -1;
-    vector mainBaseVec = cInvalidVector;
-
-    mainBaseVec = kbBaseGetLocation(cMyID, kbBaseGetMainID(cMyID));
-
-    int enemyCount = getUnitCountByLocation(cUnitTypeLogicalTypeLandMilitary, cPlayerRelationEnemyNotGaia, cUnitStateAlive, mainBaseVec, 40.0);
-    enemyCount = enemyCount - getUnitCountByLocation(cUnitTypeLogicalTypeLandMilitary, 0, cUnitStateAlive, mainBaseVec, 40.0); // Subtract gaia units like guardians
-    int allyCount = getUnitCountByLocation(cUnitTypeLogicalTypeLandMilitary, cPlayerRelationAlly, cUnitStateAlive, mainBaseVec, 40.0);
-
-    if (kbTechGetStatus(cTechLevy) == cTechStatusActive)
-    { // We're done, we've used levy
-        aiEcho("   ** We've used levy, disabling useLevy rule.");
-        xsDisableSelf();
-        return;
-    }
-
-    if (levyPlan < 0) // No plan, see if we need one.
-    {
-        if (enemyCount >= (allyCount + 6)) // We're behind by 6 or more
-        {
-            aiEcho("***** Starting a levy plan, there are " + enemyCount + " enemy units in my base against " + allyCount + " friendlies.");
-            levyPlan = createSimpleResearchPlan(cTechLevy, getUnit(cUnitTypeTownCenter), 99); // Extreme priority
-        }
-    }
-    else // Plan exists, make sure it's still needed
-    {
-
-        if (enemyCount > (allyCount + 2))
-        { // Do nothing
-            aiEcho("   ** Still waiting for Levy.");
-        }
-        else
-        {
-            aiEcho("   ** Cancelling levy.");
-            aiPlanDestroy(levyPlan);
-            levyPlan = -1;
-        }
-    }
-}
-
-//==============================================================================
 // mostHatedEnemy
 // Determine who we should attack, checking control variables
 //==============================================================================
