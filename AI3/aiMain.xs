@@ -10265,6 +10265,64 @@ minInterval 10
 }
 
 //==============================================================================
+/* captureHerdables
+   Capture herdables using unassigned scout units.
+*/
+//==============================================================================
+rule captureHerdables
+inactive
+group startup
+minInterval 5
+{
+    static int herdableQuery = -1;
+    static int scoutQuery = -1;
+    if (herdableQuery == -1)
+    {
+        herdableQuery = kbUnitQueryCreate("Find herdables to capture");
+        kbUnitQuerySetUnitType(herdableQuery, cUnitTypeHerdable);
+        kbUnitQuerySetPlayerRelation(herdableQuery, -1);
+        kbUnitQuerySetPlayerID(herdableQuery, 0, false);
+        kbUnitQuerySetState(herdableQuery, cUnitStateAlive);
+        kbUnitQuerySetIgnoreKnockedOutUnits(herdableQuery, true);
+        
+        scoutQuery = kbUnitQueryCreate("Find herdables to capture");
+        kbUnitQuerySetUnitType(scoutQuery, cUnitTypeLogicalTypeScout);
+        kbUnitQuerySetPlayerRelation(scoutQuery, -1);
+        kbUnitQuerySetPlayerID(scoutQuery, cMyID, false);
+        kbUnitQuerySetState(scoutQuery, cUnitStateAlive);
+        kbUnitQuerySetIgnoreKnockedOutUnits(scoutQuery, true);
+        kbUnitQuerySetMaximumDistance(scoutQuery, 5000.0);
+        kbUnitQuerySetAscendingSort(scoutQuery, true);
+    }
+    kbUnitQueryResetResults(herdableQuery);
+    int herdableCount = kbUnitQueryExecute(herdableQuery);
+
+    for(i = 0; < herdableCount)
+    {
+        int iHerdable = kbUnitQueryGetResult(herdableQuery, i);
+        vector iHerdablePos = kbUnitGetPosition(iHerdable);
+
+        kbUnitQueryResetResults(scoutQuery);
+        kbUnitQuerySetPosition(scoutQuery, iHerdablePos);
+        int scoutCount = kbUnitQueryExecute(scoutQuery);
+
+        for(j = 0; < scoutCount)
+        {
+            int jScout = kbUnitQueryGetResult(scoutQuery, j);
+            if (kbUnitGetPlanID(jScout) >= 0 && aiPlanGetState(kbUnitGetPlanID(jScout)) != cPlanStateExplore)
+                continue;
+            
+            vector jScoutPos = kbUnitGetPosition(jScout);
+            if (kbCanPath2(jScoutPos, iHerdablePos, kbUnitGetProtoUnitID(jScout)) == false)
+                continue;
+            
+            aiTaskUnitMove(jScout, iHerdablePos);
+            break;
+        }
+    }
+}
+
+//==============================================================================
 //==============================================================================
 //==============================================================================
 //==============================================================================
